@@ -1,0 +1,10 @@
+node_modules/
+.env.local
+.next/
+out/
+dist/
+tsconfig.tsbuildinfo
+
+# Dev utility files
+directory_recursor_output.txt
+code_recursor.py
