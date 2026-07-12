@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS docs (
   -- ── Client Details ──────────────────────────────────────────────────────────
   name          TEXT           NOT NULL,
   company       TEXT,
+  email         TEXT,
   service       TEXT,
   service_type  TEXT,
   service_area  TEXT,
@@ -95,6 +96,18 @@ ALTER TABLE docs ADD COLUMN IF NOT EXISTS first_view_ua    TEXT;
 ALTER TABLE docs ADD COLUMN IF NOT EXISTS signed_ip        TEXT;
 ALTER TABLE docs ADD COLUMN IF NOT EXISTS signed_ua        TEXT;
 ALTER TABLE docs ADD COLUMN IF NOT EXISTS accepted_esign_terms BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS payment_link TEXT;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS magic_token_expires_at TIMESTAMPTZ;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS email TEXT;
+
+-- ── Stripe Integration ────────────────────────────────────────────────────────
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS stripe_payment_link_id  TEXT;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS stripe_payment_link_url TEXT;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS stripe_session_id        TEXT;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS stripe_customer_email    TEXT;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS paid_at                  TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_docs_stripe_link    ON docs(stripe_payment_link_id) WHERE stripe_payment_link_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_docs_stripe_session ON docs(stripe_session_id) WHERE stripe_session_id IS NOT NULL;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- CONSTRAINTS
@@ -141,6 +154,7 @@ CREATE INDEX IF NOT EXISTS idx_docs_created_at   ON docs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_docs_name         ON docs(name);
 CREATE INDEX IF NOT EXISTS idx_docs_slug         ON docs(slug);
 CREATE INDEX IF NOT EXISTS idx_docs_payment      ON docs(payment_status);
+CREATE INDEX IF NOT EXISTS idx_docs_magic_token   ON docs(magic_token_hash);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- TRIGGER: auto-update updated_at on any row modification
@@ -201,6 +215,11 @@ CREATE INDEX IF NOT EXISTS idx_doc_events_doc_id     ON doc_events(doc_id);
 CREATE INDEX IF NOT EXISTS idx_doc_events_type       ON doc_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_doc_events_created_at ON doc_events(created_at DESC);
 
+-- Phase 3 — operational timeline columns (idempotent)
+ALTER TABLE doc_events ADD COLUMN IF NOT EXISTS detail            TEXT;
+ALTER TABLE doc_events ADD COLUMN IF NOT EXISTS posted_by         TEXT;
+ALTER TABLE doc_events ADD COLUMN IF NOT EXISTS visible_to_client BOOLEAN NOT NULL DEFAULT true;
+
 -- RLS for doc_events: service_role handles all reads/writes via API routes
 ALTER TABLE doc_events ENABLE ROW LEVEL SECURITY;
 
@@ -232,3 +251,69 @@ COMMENT ON COLUMN docs.fee                   IS 'Per-call rate as text (e.g. $15
 COMMENT ON TABLE  doc_events                 IS 'Immutable audit log for all significant lifecycle events on a doc';
 COMMENT ON COLUMN doc_events.event_type      IS 'created | email_sent | viewed | signed | invoice_viewed | payment_updated';
 COMMENT ON COLUMN doc_events.metadata        IS 'Contextual data: { via: "magic_link" | "code", to: "email@..." }';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- PHASE 10 — Performance fields on docs (idempotent)
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS calls_total       INTEGER       DEFAULT 0;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS calls_qualified   INTEGER       DEFAULT 0;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS jobs_booked       INTEGER       DEFAULT 0;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS ad_spend          NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS avg_job_value     NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS monthly_budget    NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS monthly_call_cap  INTEGER       DEFAULT 0;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS rate_per_call     NUMERIC(10,2) DEFAULT 0;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- TABLE: daily_metrics — per-doc daily performance log
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS daily_metrics (
+  id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  doc_id           UUID        NOT NULL REFERENCES docs(id) ON DELETE CASCADE,
+  date             DATE        NOT NULL,
+  spend            NUMERIC(8,2) DEFAULT 0,
+  calls_total      INTEGER      DEFAULT 0,
+  calls_qualified  INTEGER      DEFAULT 0,
+  created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  UNIQUE(doc_id, date)
+);
+CREATE INDEX IF NOT EXISTS idx_daily_metrics_doc_date ON daily_metrics(doc_id, date DESC);
+
+-- RLS: only service_role writes (admin API routes)
+ALTER TABLE daily_metrics ENABLE ROW LEVEL SECURITY;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- COMMS MODULE (voice + text between admin and client)
+-- Added by the /comms-test standalone module. Reserved for later portal wiring.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Web-push subscriptions — one row per device that opted in for ring notifications
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  doc_code    TEXT        NOT NULL,
+  role        TEXT        NOT NULL CHECK (role IN ('admin', 'client')),
+  endpoint    TEXT        NOT NULL UNIQUE,
+  p256dh      TEXT        NOT NULL,
+  auth        TEXT        NOT NULL,
+  user_agent  TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_push_subs_code ON push_subscriptions(doc_code, role);
+
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+-- No anon policies — service_role only (all reads/writes via API routes).
+
+-- Text chat log — persists across sessions, drives ChatPanel + unread counts
+CREATE TABLE IF NOT EXISTS comms_messages (
+  id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  doc_code     TEXT        NOT NULL,
+  sender_role  TEXT        NOT NULL CHECK (sender_role IN ('admin', 'client')),
+  body         TEXT        NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  read_at      TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_comms_messages_code_created
+  ON comms_messages(doc_code, created_at DESC);
+
+ALTER TABLE comms_messages ENABLE ROW LEVEL SECURITY;
+-- Access exclusively via /api/comms/messages (service_role).

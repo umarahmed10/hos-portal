@@ -113,6 +113,9 @@ export function AdminDashboard({ initialDocs }: Props) {
             <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 800, color: TEXT, letterSpacing: "0.3px" }}>ADMIN DASHBOARD</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => router.push("/comms-test/admin")} title="Voice + text with clients" style={{ ...css.btnS, display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", fontSize: 12 }}>
+              <span aria-hidden="true">📞</span> Comms
+            </button>
             <button onClick={() => router.push("/admin/new")} style={{ ...css.btnP, display: "flex", alignItems: "center", gap: 6, padding: "9px 18px", fontSize: 12 }}>
               <Plus size={13} /> New Doc
             </button>

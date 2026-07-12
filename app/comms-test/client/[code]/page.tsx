@@ -1,0 +1,32 @@
+import { notFound } from "next/navigation";
+import { getDocByCode } from "@/lib/data-access";
+import { ClientCommsUI } from "./ClientCommsUI";
+
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
+  const { code } = await params;
+  return {
+    title: `HOS · ${code.toUpperCase()}`,
+    manifest: "/manifest.webmanifest",
+  };
+}
+
+export default async function CommsClientPage({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}) {
+  const { code } = await params;
+  const upper = code.toUpperCase();
+  const doc = await getDocByCode(upper);
+  if (!doc) notFound();
+
+  return (
+    <ClientCommsUI
+      code={upper}
+      clientName={doc.name}
+      vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
+    />
+  );
+}

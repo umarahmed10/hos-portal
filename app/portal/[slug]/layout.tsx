@@ -6,6 +6,7 @@ import { getDocBySlug }       from "@/lib/data-access";
 import { PortalNav }          from "@/components/client/PortalNav";
 import { BODY, BORDER, BG, FONT, MUTED, SURF, TEXT } from "@/lib/styles";
 import { StatusBadge }        from "@/components/server/StatusBadge";
+import { CommsFAB }           from "@/components/comms/CommsFAB";
 
 interface Props {
   children: React.ReactNode;
@@ -66,6 +67,9 @@ export default async function PortalLayout({ children, params }: Props) {
       <main style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px 80px" }}>
         {children}
       </main>
+
+      {/* Floating call button — links to /comms-test/client/[code] */}
+      <CommsFAB code={doc.code} />
     </div>
   );
 }

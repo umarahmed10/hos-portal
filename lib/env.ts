@@ -37,8 +37,23 @@ export const OPENROUTER_MODEL   = () => optional("OPENROUTER_MODEL", "meta-llama
 
 // Resend
 export const RESEND_API_KEY    = () => require("RESEND_API_KEY");
-export const RESEND_FROM_EMAIL = () => optional("RESEND_FROM_EMAIL", "onboarding@resend.dev");
-export const NOTIFY_EMAIL      = () => require("NOTIFY_EMAIL");
+export const RESEND_FROM_EMAIL = () => optional("RESEND_FROM_EMAIL", "solutions@hosautomations.co");
+export const NOTIFY_EMAIL      = () => process.env.NOTIFY_EMAIL ?? require("ADMIN_EMAIL");
 
 // App URL
 export const APP_URL = () => optional("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
+
+// Stripe
+export const STRIPE_SECRET_KEY        = process.env.STRIPE_SECRET_KEY        ?? "";
+export const STRIPE_WEBHOOK_SECRET    = process.env.STRIPE_WEBHOOK_SECRET    ?? "";
+export const NEXT_PUBLIC_STRIPE_PK    = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+
+// LiveKit (voice/text realtime)
+export const LIVEKIT_URL              = () => require("NEXT_PUBLIC_LIVEKIT_URL");
+export const LIVEKIT_API_KEY          = () => require("LIVEKIT_API_KEY");
+export const LIVEKIT_API_SECRET       = () => require("LIVEKIT_API_SECRET");
+
+// Web Push (VAPID)
+export const VAPID_PUBLIC_KEY         = () => require("NEXT_PUBLIC_VAPID_PUBLIC_KEY");
+export const VAPID_PRIVATE_KEY        = () => require("VAPID_PRIVATE_KEY");
+export const VAPID_SUBJECT            = () => optional("VAPID_SUBJECT", "mailto:team@hosautomations.co");
