@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { CallPanel } from "@/components/comms/CallPanel";
 import { ChatPanel } from "@/components/comms/ChatPanel";
+import { postJSON } from "@/lib/comms/http";
 import { BG, SURF, BORDER, TEXT, MUTED, GOLD } from "@/lib/styles";
 
 interface Client { code: string; name: string; company: string | null }
@@ -15,13 +16,10 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
   async function ring(client: Client) {
     setRinging(client.code);
     try {
-      const res = await fetch("/api/comms/ring", {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code: client.code }),
-      });
-      const j = await res.json();
-      if (!j.ok) throw new Error(j.error);
-      toast.success(`Ringing · ${j.data.delivered}/${j.data.total} device(s) reached`);
+      const data = await postJSON<{ delivered: number; total: number }>(
+        "/api/comms/ring", { code: client.code },
+      );
+      toast.success(`Ringing · ${data.delivered}/${data.total} device(s) reached`);
       setActive(client);
       setAutoJoin(true);
     } catch (e) {

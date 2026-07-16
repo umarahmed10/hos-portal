@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Room, RoomEvent, Track, LocalAudioTrack, RemoteParticipant } from "livekit-client";
+import { Room, RoomEvent, Track, LocalAudioTrack, RemoteParticipant, type Participant } from "livekit-client";
 import { BG, SURF, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
+import { postJSON } from "@/lib/comms/http";
+
+interface TokenData { token: string; url: string; room: string; identity: string; peerName?: string }
 
 interface Props {
   code:      string;
@@ -10,14 +13,19 @@ interface Props {
   onLeave?:  () => void;
 }
 
-type ConnState = "idle" | "connecting" | "connected" | "error";
+type ConnState = "idle" | "connecting" | "connected" | "reconnecting" | "error";
 
 export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
   const roomRef = useRef<Room | null>(null);
+  // Audio elements we attach for remote tracks — tracked so every one is torn
+  // down on unmount/disconnect (previously appended to document.body and leaked
+  // when the panel unmounted mid-call or hit an error path).
+  const audioElsRef = useRef<HTMLAudioElement[]>([]);
   const [state, setState]           = useState<ConnState>("idle");
   const [error, setError]           = useState<string | null>(null);
   const [muted, setMuted]           = useState(false);
   const [remote, setRemote]         = useState<string | null>(null);
+  const [remoteSpeaking, setRemoteSpeaking] = useState(false);
   const [peerName, setPeerName]     = useState<string>(me === "admin" ? "them" : "HOS Team");
   const [elapsedMs, setElapsedMs]   = useState(0);
   const [remoteJoinedAt, setRemoteJoinedAt] = useState<number | null>(null);
@@ -39,14 +47,8 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
     setState("connecting");
     setError(null);
     try {
-      const res = await fetch("/api/comms/token", {
-        method:  "POST",
-        headers: { "content-type": "application/json" },
-        body:    JSON.stringify({ code, asRole: me }),
-      });
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error || "Failed to get token");
-      if (json.data.peerName) setPeerName(json.data.peerName);
+      const data = await postJSON<TokenData>("/api/comms/token", { code, asRole: me });
+      if (data.peerName) setPeerName(data.peerName);
 
       const room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
@@ -58,20 +60,33 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
       room.on(RoomEvent.ParticipantDisconnected, () => {
         setRemote(null);
         setRemoteJoinedAt(null);
+        setRemoteSpeaking(false);
       });
       room.on(RoomEvent.TrackSubscribed, (track) => {
         if (track.kind === Track.Kind.Audio) {
           const el = track.attach() as HTMLAudioElement;
           el.autoplay = true;
+          el.style.display = "none";
+          audioElsRef.current.push(el);
           document.body.appendChild(el);
         }
       });
+      // Speaking indicator — the single strongest "who's talking" signal.
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
+        setRemoteSpeaking(speakers.some(s => s !== room.localParticipant));
+      });
+      // Reconnect lifecycle — a dropped connection now reads differently from a
+      // deliberate hang-up instead of silently flipping to idle.
+      room.on(RoomEvent.Reconnecting, () => setState("reconnecting"));
+      room.on(RoomEvent.Reconnected,  () => setState("connected"));
       room.on(RoomEvent.Disconnected, () => {
+        detachAudio();
         setState("idle");
+        setRemoteSpeaking(false);
         onLeave?.();
       });
 
-      await room.connect(json.data.url, json.data.token);
+      await room.connect(data.url, data.token);
       await room.localParticipant.setMicrophoneEnabled(true);
 
       const existing = Array.from(room.remoteParticipants.values())[0];
@@ -88,19 +103,23 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
     }
   }
 
+  function detachAudio() {
+    audioElsRef.current.forEach(el => el.remove());
+    audioElsRef.current = [];
+  }
+
   function disconnect() {
     const room = roomRef.current;
     if (!room) return;
-    // Detach any attached audio elements
     room.remoteParticipants.forEach(p => {
-      p.audioTrackPublications.forEach(pub => {
-        pub.track?.detach().forEach(el => el.remove());
-      });
+      p.audioTrackPublications.forEach(pub => pub.track?.detach());
     });
+    detachAudio();
     room.disconnect();
     roomRef.current = null;
     setRemote(null);
     setRemoteJoinedAt(null);
+    setRemoteSpeaking(false);
   }
 
   async function toggleMute() {
@@ -123,12 +142,21 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
   const ss = String(seconds % 60).padStart(2, "0");
 
+  const inCall = state === "connected" || state === "reconnecting";
+
   const dotColor =
+    state === "reconnecting"        ? GOLD  :
     state === "connected" && remote ? GREEN :
     state === "connected"           ? GOLD  :
     state === "connecting"          ? GOLD  :
     state === "error"               ? RED   :
     BORDER;
+
+  // Dot pulses while the peer is speaking, or while waiting/reconnecting.
+  const dotPulse =
+    (state === "connected" && remoteSpeaking) ||
+    (state === "connected" && !remote) ||
+    state === "reconnecting";
 
   return (
     <div style={{
@@ -139,27 +167,39 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.15em" }}>Voice</div>
           <div style={{ fontSize: 18, fontWeight: 600 }}>
-            {state === "idle"       && "Not connected"}
-            {state === "connecting" && "Connecting…"}
-            {state === "connected" && remote  && <>Connected with <span style={{ color: GREEN }}>{peerName}</span> · {mm}:{ss}</>}
+            {state === "idle"         && "Not connected"}
+            {state === "connecting"   && "Connecting…"}
+            {state === "reconnecting" && <span style={{ color: GOLD }}>Reconnecting…</span>}
+            {state === "connected" && remote  && (
+              <>
+                {remoteSpeaking
+                  ? <><span style={{ color: GREEN }}>{peerName}</span> is speaking</>
+                  : <>Connected with <span style={{ color: GREEN }}>{peerName}</span></>}
+                {" · "}{mm}:{ss}
+              </>
+            )}
             {state === "connected" && !remote && <>You&apos;re in. Waiting for {peerName}…</>}
-            {state === "error"      && "Connection failed"}
+            {state === "error"        && "Connection failed"}
           </div>
           {error && <div style={{ fontSize: 12, color: RED, marginTop: 4 }}>{error}</div>}
         </div>
         <div style={{
           width: 10, height: 10, borderRadius: 5, flexShrink: 0,
           background: dotColor,
-          animation: state === "connected" && !remote ? "pulseDot 1.2s ease-in-out infinite" : undefined,
+          animation: dotPulse ? "pulseDot 1.2s ease-in-out infinite" : undefined,
         }} />
       </div>
 
       <div style={{ display: "flex", gap: 10 }}>
-        {state !== "connected" && state !== "connecting" ? (
-          <button onClick={connect} style={btnPrimary}>Join call</button>
+        {!inCall && state !== "connecting" ? (
+          <button onClick={connect} style={btnPrimary}>
+            {state === "error" ? "Try again" : "Join call"}
+          </button>
         ) : (
           <>
-            <button onClick={toggleMute} style={btnSecondary}>{muted ? "Unmute" : "Mute"}</button>
+            <button onClick={toggleMute} disabled={state === "reconnecting"} style={btnSecondary}>
+              {muted ? "Unmute" : "Mute"}
+            </button>
             <button onClick={disconnect} style={btnDanger}>Hang up</button>
           </>
         )}

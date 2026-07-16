@@ -29,36 +29,53 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  // Resolve display names so each side can label the peer in the UI.
-  const doc        = await getDocByCode(code);
-  const clientName = doc?.name ?? `Client ${code}`;
-  const identity   = caller.role === "admin" ? "admin"    : `client:${code}`;
-  const myName     = caller.role === "admin" ? "HOS Team" : clientName;
-  const peerName   = caller.role === "admin" ? clientName : "HOS Team";
+  try {
+    // Resolve display names so each side can label the peer in the UI.
+    const doc        = await getDocByCode(code);
+    const clientName = doc?.name ?? `Client ${code}`;
+    const identity   = caller.role === "admin" ? "admin"    : `client:${code}`;
+    const myName     = caller.role === "admin" ? "HOS Team" : clientName;
+    const peerName   = caller.role === "admin" ? clientName : "HOS Team";
 
-  const at = new AccessToken(LIVEKIT_API_KEY(), LIVEKIT_API_SECRET(), {
-    identity,
-    name: myName,
-    ttl:  60 * 60, // 1h
-  });
-  at.addGrant({
-    room:         code,
-    roomJoin:     true,
-    canPublish:   true,
-    canSubscribe: true,
-    canPublishData: true,
-  });
-
-  const jwt = await at.toJwt();
-
-  return NextResponse.json({
-    ok:   true,
-    data: {
-      token:    jwt,
-      url:      LIVEKIT_URL(),
-      room:     code,
+    // Env accessors throw synchronously when a LIVEKIT_* var is unset. Guarded
+    // here so misconfiguration surfaces as a readable JSON error instead of an
+    // HTML 500 that the client blindly parses (the admin-join bug).
+    const at = new AccessToken(LIVEKIT_API_KEY(), LIVEKIT_API_SECRET(), {
       identity,
-      peerName,
-    },
-  });
+      name: myName,
+      ttl:  60 * 60, // 1h
+    });
+    at.addGrant({
+      room:         code,
+      roomJoin:     true,
+      canPublish:   true,
+      canSubscribe: true,
+      canPublishData: true,
+    });
+
+    const jwt = await at.toJwt();
+
+    return NextResponse.json({
+      ok:   true,
+      data: {
+        token:    jwt,
+        url:      LIVEKIT_URL(),
+        room:     code,
+        identity,
+        peerName,
+      },
+    });
+  } catch (err) {
+    const missingEnv = err instanceof Error && err.message.includes("[env]");
+    console.error("[comms/token] failed to mint token:", err);
+    return NextResponse.json(
+      {
+        ok:    false,
+        error: missingEnv
+          ? "Voice service is not configured. Set the LIVEKIT_* environment variables."
+          : "Could not start the call. Please try again.",
+      },
+      { status: missingEnv ? 503 : 500 },
+    );
+  }
 }
