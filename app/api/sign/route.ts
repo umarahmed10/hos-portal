@@ -16,6 +16,18 @@ function notifyAdminServerSide(input: NotifyInput) {
   }).catch(() => {});
 }
 
+function emailSignedCopyToClient(input: {
+  to: string; name: string; company: string | null;
+  code: string; invoiceTotal: number; signedAt: string;
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  fetch(`${appUrl}/api/email-signed`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(input),
+  }).catch(() => {});
+}
+
 const Schema = z.object({
   code:                z.string().length(6),
   signature:           z.string().min(10),   // base64 PNG data URL
@@ -77,7 +89,21 @@ export async function POST(req: Request) {
       invoiceTotal: money(doc.invoice_total),
       signedAt:     now,
       code:         doc.code,
+      ip,
+      ua,
     });
+
+    // Email signed copy to client (fire-and-forget — only if we have an address on file)
+    if (doc.email) {
+      emailSignedCopyToClient({
+        to:           doc.email,
+        name:         doc.name,
+        company:      doc.company,
+        code:         doc.code,
+        invoiceTotal: doc.invoice_total,
+        signedAt:     now,
+      });
+    }
 
     return NextResponse.json({ ok: true, data: { signed_at: now } });
   } catch (err) {

@@ -22,12 +22,12 @@ export function InvoiceTable({ doc, sectionNum, showPayment = true }: Props) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
           {sectionNum && (
-            <div style={{ fontSize: 10, letterSpacing: "2px", fontWeight: 800, color: "#444", fontFamily: BODY, marginBottom: 6 }}>
+            <div style={{ fontSize: 10, letterSpacing: "2px", fontWeight: 700, color: "#444", fontFamily: BODY, marginBottom: 6 }}>
               <span style={{ marginRight: 10, color: "#2a2a2a" }}>{sectionNum}</span>
               INVOICE
             </div>
           )}
-          <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 800, color: TEXT }}>
+          <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: TEXT }}>
             HOS AUTOMATIONS
           </div>
           <div style={{ fontSize: 13, color: MUTED, marginTop: 2 }}>
@@ -57,7 +57,8 @@ export function InvoiceTable({ doc, sectionNum, showPayment = true }: Props) {
       </div>
 
       {/* Line items */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
+      <div style={{ overflowX: "auto", marginBottom: 16 }}>
+      <table style={{ width: "100%", minWidth: 460, borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
             {["Description", "Qty", "Unit Price", "Total"].map((h, i) => (
@@ -86,6 +87,7 @@ export function InvoiceTable({ doc, sectionNum, showPayment = true }: Props) {
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* Total box */}
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -109,7 +111,7 @@ export function InvoiceTable({ doc, sectionNum, showPayment = true }: Props) {
               <span style={{ fontWeight: 700, fontFamily: FONT, fontSize: 16, letterSpacing: "0.5px", color: GREEN }}>
                 PAID IN FULL
               </span>
-              <span style={{ fontWeight: 800, fontSize: 22, color: GREEN, fontFamily: MONO }}>
+              <span style={{ fontWeight: 700, fontSize: 22, color: GREEN, fontFamily: MONO }}>
                 {money(doc.invoice_total)}
               </span>
             </div>
@@ -118,7 +120,7 @@ export function InvoiceTable({ doc, sectionNum, showPayment = true }: Props) {
               <span style={{ fontWeight: 700, fontFamily: FONT, fontSize: 16, letterSpacing: "0.5px" }}>
                 {doc.payment_status === "partially_paid" ? "BALANCE DUE" : "TOTAL DUE"}
               </span>
-              <span style={{ fontWeight: 800, fontSize: 22, color: TEXT, fontFamily: MONO }}>
+              <span style={{ fontWeight: 700, fontSize: 22, color: TEXT, fontFamily: MONO }}>
                 {money(Math.max(0, doc.invoice_total - (doc.amount_paid || 0)))}
               </span>
             </div>

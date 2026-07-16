@@ -1,89 +1,142 @@
-// Portal Status tab — Amazon-style campaign progress tracker.
-import { notFound, redirect } from "next/navigation";
-import { getPortalSession }   from "@/lib/portal-auth";
-import { getDocBySlug, getDocEvents, logEvent } from "@/lib/data-access";
-import { StatusTracker }      from "@/components/client/StatusTracker";
-import { BODY, BORDER, FONT, GREEN, MUTED, SURF, TEXT, css } from "@/lib/styles";
-import { headers }            from "next/headers";
+// Portal Status tab — onboarding progress tracker.
+import { notFound, redirect }  from "next/navigation";
+import Link                    from "next/link";
+import { getPortalSession }    from "@/lib/portal-auth";
+import { getDocBySlug, logEvent } from "@/lib/data-access";
+import { AutoRefresh }         from "@/components/client/AutoRefresh";
+import { ProgressBanner }      from "@/components/client/ProgressBanner";
+import { BODY, GREEN, GREEN_DIM, GREEN_BORDER, MUTED, TEXT, css, AMBER_DIM, AMBER_BORDER } from "@/lib/styles";
+import { headers }             from "next/headers";
+import { money }               from "@/lib/utils";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
 export default async function PortalStatusPage({ params }: Props) {
-  const { slug }  = await params;
-  const session   = await getPortalSession();
+  const { slug } = await params;
+  const session  = await getPortalSession();
   if (!session || session.slug !== slug) redirect(`/portal/${slug}`);
 
   const doc = await getDocBySlug(slug);
   if (!doc) notFound();
 
-  const events = await getDocEvents(doc.id);
+  // Active paid clients belong on the dashboard, not the status page
+  if (doc.payment_status === "paid" && doc.status === "signed") {
+    redirect(`/portal/${slug}/dashboard`);
+  }
 
-  // Log invoice_viewed event (non-blocking)
-  const hdrs    = await headers();
-  const ip      = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-  const ua      = hdrs.get("user-agent") ?? null;
-  logEvent(doc.id, "viewed", { via: "portal", tab: "status" }, ip, ua).catch(() => {});
+  const hdrs = await headers();
+  const ip   = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ua   = hdrs.get("user-agent") ?? null;
+  logEvent(doc.id, "viewed", { via: "portal", tab: "status" }, ip, ua, null, null, false).catch(() => {});
 
-  const isSigned = doc.status === "signed";
+  const isSigned   = doc.status === "signed";
+  const isPaid     = doc.payment_status === "paid";
+  const isPartial  = doc.payment_status === "partially_paid";
 
   return (
-    <div style={{ animation: "fadeIn 200ms ease-out" }}>
+    <div style={{ animation: "fadeIn 280ms var(--ease-out)" }} className="stagger">
+      <AutoRefresh intervalMs={30000} />
+
+      {/* Progress banner */}
+      <div style={{ margin: "0 -20px 24px", borderRadius: 0 }}>
+        <ProgressBanner doc={doc} />
+      </div>
 
       {/* Hero */}
-      <div style={{ marginBottom: 36 }}>
-        <div style={{ fontSize: 10, letterSpacing: "2px", fontWeight: 800, color: MUTED, fontFamily: BODY, marginBottom: 8 }}>
-          ONBOARDING STATUS
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 10, letterSpacing: "1.5px", fontWeight: 700, color: MUTED, fontFamily: BODY, marginBottom: 8 }}>
+          Onboarding status
         </div>
-        <h2 style={{ fontFamily: FONT, fontSize: 36, fontWeight: 900, letterSpacing: "-0.5px", color: TEXT, marginBottom: 10 }}>
-          {isSigned ? "You're In." : "Almost There."}
+        <h2 style={{ fontFamily: BODY, fontSize: 26, fontWeight: 700, letterSpacing: "-0.3px", color: TEXT, marginBottom: 10 }}>
+          {isSigned && isPaid ? "You're live." : isSigned ? "Awaiting payment." : "Almost there."}
         </h2>
-        <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.7, maxWidth: 480 }}>
-          {isSigned
-            ? "Your agreement is signed. Here's where things stand as we set up your campaign."
-            : "Review and sign your agreement to activate your account and start receiving qualified calls."}
+        <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.7, maxWidth: 440, margin: 0 }}>
+          {isSigned && isPaid
+            ? "Your agreement is signed, payment received, and your campaign is active."
+            : isSigned
+            ? "Agreement signed. Submit payment to launch your campaign."
+            : "Your documents are ready. Sign your agreement to activate your account and begin receiving qualified calls."}
         </p>
       </div>
 
-      {/* Tracker card */}
-      <div style={{ ...css.card, padding: "28px 28px 24px" }}>
-        <StatusTracker doc={doc} events={events} />
-      </div>
-
-      {/* CTA if not signed */}
+      {/* Signature required CTA */}
       {!isSigned && (
         <div style={{
           ...css.card,
-          display:    "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap:        16,
-          padding:    "20px 24px",
-          borderColor: "rgba(234,179,8,0.2)",
-          background:  "rgba(234,179,8,0.04)",
+          padding:     "20px 24px",
+          borderColor: AMBER_BORDER,
+          background:  AMBER_DIM,
+          marginBottom: 12,
         }}>
-          <div>
-            <div style={{ fontFamily: FONT, fontSize: 16, fontWeight: 800, color: TEXT, marginBottom: 4 }}>
-              SIGNATURE REQUIRED
-            </div>
-            <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-              Sign your agreement to activate your account and begin receiving calls.
-            </p>
+          <div style={{ fontFamily: BODY, fontSize: 15, fontWeight: 700, color: TEXT, marginBottom: 6 }}>
+            Signature required
           </div>
-          <a
-            href={`/portal/${slug}/documents`}
-            style={{
-              ...css.btnP,
-              textDecoration: "none",
-              display:        "inline-block",
-              whiteSpace:     "nowrap",
-              padding:        "11px 24px",
-              fontSize:       13,
-            }}
+          <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.6, margin: "0 0 16px" }}>
+            Sign your agreement to activate your account and start receiving calls.
+          </p>
+          <Link
+            href={`/portal/${slug}/sign`}
+            style={{ ...css.btnP, display: "inline-flex", textDecoration: "none", padding: "13px 28px", fontSize: 14 }}
           >
-            REVIEW & SIGN →
-          </a>
+            Sign agreement →
+          </Link>
+        </div>
+      )}
+
+      {/* Payment CTA — only show if signed and unpaid/partial */}
+      {isSigned && !isPaid && (
+        <div style={{
+          ...css.card,
+          padding:     "20px 24px",
+          marginBottom: 12,
+        }}>
+          <div style={{ fontSize: 10, color: MUTED, fontFamily: BODY, letterSpacing: "1px", marginBottom: 8 }}>Next step</div>
+          <div style={{ fontFamily: BODY, fontSize: 15, fontWeight: 700, color: TEXT, marginBottom: 6 }}>
+            {isPartial ? "Complete your payment" : "Submit payment to launch"}
+          </div>
+          <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.65, margin: "0 0 16px" }}>
+            {isPartial
+              ? `You've paid ${money(doc.amount_paid)} of ${money(doc.invoice_total)}. Complete your payment to launch your campaign.`
+              : "Campaign launch typically takes 3–5 business days after payment is received."}
+          </p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {doc.payment_link && (
+              <a
+                href={doc.payment_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ ...css.btnP, display: "inline-flex", textDecoration: "none", padding: "13px 28px", fontSize: 14 }}
+              >
+                Pay now →
+              </a>
+            )}
+            <Link
+              href={`/portal/${slug}/invoices`}
+              style={{ ...css.btnS, display: "inline-flex", textDecoration: "none", padding: "12px 20px", fontSize: 13 }}
+            >
+              View invoice
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Signed + paid confirmation */}
+      {isSigned && isPaid && (
+        <div style={{
+          ...css.card,
+          padding:     "18px 22px",
+          borderColor: GREEN_BORDER,
+          background:  GREEN_DIM,
+          marginBottom: 12,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: GREEN, fontWeight: 700, fontSize: 14, fontFamily: BODY }}>
+            <span>✓</span> All set — your campaign is active.
+          </div>
+          <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.65, margin: "8px 0 0" }}>
+            You&apos;ll receive a weekly performance report every Monday.
+          </p>
         </div>
       )}
     </div>

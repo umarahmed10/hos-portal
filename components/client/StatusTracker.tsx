@@ -3,7 +3,7 @@
 // Reflects real doc state where possible; remaining steps shown as upcoming.
 import type { Doc, DocEvent } from "@/types";
 import { fmtDateTime }        from "@/lib/utils";
-import { GREEN, MUTED, SURF, BORDER, TEXT, BODY, FONT } from "@/lib/styles";
+import { GREEN, GREEN_BORDER, MUTED, SURF, BORDER, TEXT, BODY } from "@/lib/styles";
 
 interface Step {
   key:       string;
@@ -105,18 +105,18 @@ export function StatusTracker({ doc, events, compact = false }: Props) {
   return (
     <div style={{ position: "relative" }}>
       {steps.map((step, i) => {
-        const isLast = i === steps.length - 1;
+        const isLast   = i === steps.length - 1;
         const dotColor = step.done ? GREEN : BORDER;
-        const lineColor = step.done ? "rgba(34,197,94,0.2)" : "#141414";
+        const lineColor = step.done ? GREEN_BORDER : BORDER;
 
         return (
           <div
             key={step.key}
             style={{
-              display:     "flex",
-              gap:         compact ? 14 : 18,
+              display:       "flex",
+              gap:           compact ? 14 : 18,
               paddingBottom: isLast ? 0 : (compact ? 18 : 24),
-              animation:   step.done ? "fadeIn 250ms ease-out both" : undefined,
+              animation:     step.done ? "fadeIn 250ms ease-out both" : undefined,
               animationDelay: step.done ? `${i * 40}ms` : undefined,
             }}
           >
@@ -124,17 +124,17 @@ export function StatusTracker({ doc, events, compact = false }: Props) {
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 20 }}>
               {/* Dot */}
               <div style={{
-                width:        step.done ? 20 : 14,
-                height:       step.done ? 20 : 14,
-                borderRadius: "50%",
-                border:       `2px solid ${dotColor}`,
-                background:   step.done ? "rgba(34,197,94,0.12)" : "transparent",
-                display:      "flex",
-                alignItems:   "center",
+                width:          step.done ? 20 : 14,
+                height:         step.done ? 20 : 14,
+                borderRadius:   "50%",
+                border:         `2px solid ${dotColor}`,
+                background:     step.done ? "rgba(78,173,135,0.12)" : "transparent",
+                display:        "flex",
+                alignItems:     "center",
                 justifyContent: "center",
-                flexShrink:   0,
-                marginTop:    2,
-                transition:   "all 250ms ease",
+                flexShrink:     0,
+                marginTop:      2,
+                transition:     "all 250ms ease",
               }}>
                 {step.done && (
                   <span style={{ color: GREEN, fontSize: 10, fontWeight: 700, lineHeight: 1 }}>✓</span>
@@ -156,10 +156,10 @@ export function StatusTracker({ doc, events, compact = false }: Props) {
             {/* Content */}
             <div style={{ paddingTop: 1, flex: 1 }}>
               <div style={{
-                fontFamily:    FONT,
+                fontFamily:    BODY,
                 fontSize:      compact ? 13 : 15,
                 fontWeight:    700,
-                color:         step.done ? TEXT : "#2a2a2a",
+                color:         step.done ? TEXT : BORDER,
                 letterSpacing: "0.2px",
                 marginBottom:  compact ? 0 : 2,
                 transition:    "color 250ms ease",
@@ -167,12 +167,12 @@ export function StatusTracker({ doc, events, compact = false }: Props) {
                 {step.label}
               </div>
               {!compact && (
-                <div style={{ fontSize: 12, color: step.done ? MUTED : "#222", lineHeight: 1.5, marginBottom: step.ts ? 3 : 0 }}>
+                <div style={{ fontSize: 12, color: step.done ? MUTED : BORDER, lineHeight: 1.5, marginBottom: step.ts ? 3 : 0 }}>
                   {step.sub}
                 </div>
               )}
               {step.ts && step.done && (
-                <div style={{ fontSize: 11, color: "#2d5c3a", fontFamily: BODY }}>
+                <div style={{ fontSize: 11, color: MUTED, fontFamily: BODY }}>
                   {fmtDateTime(step.ts)}
                 </div>
               )}

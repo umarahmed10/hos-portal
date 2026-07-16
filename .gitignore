@@ -8,3 +8,5 @@ tsconfig.tsbuildinfo
 # Dev utility files
 directory_recursor_output.txt
 code_recursor.py
+
+.vercel

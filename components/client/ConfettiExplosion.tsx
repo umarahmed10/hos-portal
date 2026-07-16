@@ -1,27 +1,69 @@
 "use client";
-// Lightweight pure-canvas confetti — zero external dependencies.
-// Runs once on mount, cleans up automatically.
+// Premium confetti — bone/bronze/sage palette, restrained particle count.
+// Fires once on mount, self-destroys after 3000ms.
 import { useEffect, useRef } from "react";
 
+type Shape = "rect" | "circle";
+
 interface Particle {
-  x:    number;
-  y:    number;
-  vx:   number;
-  vy:   number;
+  x:     number;
+  y:     number;
+  vx:    number;
+  vy:    number;
   color: string;
-  size: number;
-  rot:  number;
-  rotV: number;
-  life: number;
+  shape: Shape;
+  rot:   number;
+  rotV:  number;
+  born:  number;
 }
 
 const COLORS = [
-  "#f5f0eb", "#22c55e", "#eab308",
-  "#a78bfa", "#60a5fa", "#f472b6",
+  "#F3F1EC",            // bone white
+  "#8B6B3E",            // bronze
+  "#4EAD87",            // sage green
+  "rgba(243,241,236,0.4)", // ghost
 ];
 
-function randBetween(min: number, max: number) {
+const COUNT          = 80;
+const GRAVITY        = 0.3;
+const AIR_RESISTANCE = 0.98;
+const DURATION       = 2800;
+const FADE_START     = 1800;
+
+function rand(min: number, max: number) {
   return min + Math.random() * (max - min);
+}
+
+function spawn(W: number, H: number, now: number): Particle[] {
+  const cx = W / 2;
+  const cy = H * 0.08;
+  return Array.from({ length: COUNT }, () => ({
+    x:     cx + rand(-70, 70),
+    y:     cy,
+    vx:    rand(-12, 12),
+    vy:    rand(-32, -20),
+    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    shape: Math.random() < 0.55 ? "rect" : "circle",
+    rot:   rand(0, Math.PI * 2),
+    rotV:  rand(-0.2, 0.2),
+    born:  now,
+  }));
+}
+
+function draw(ctx: CanvasRenderingContext2D, p: Particle, alpha: number) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle   = p.color;
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.rot);
+  if (p.shape === "circle") {
+    ctx.beginPath();
+    ctx.arc(0, 0, 2, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillRect(-1.5, -4, 3, 8);
+  }
+  ctx.restore();
 }
 
 export function ConfettiExplosion() {
@@ -36,58 +78,42 @@ export function ConfettiExplosion() {
     canvas.width  = W;
     canvas.height = H;
 
-    const ctx = canvas.getContext("2d")!;
-    const particles: Particle[] = [];
-
-    // Spawn 120 particles from the top-center
-    for (let i = 0; i < 120; i++) {
-      particles.push({
-        x:    W * randBetween(0.3, 0.7),
-        y:    H * 0.2,
-        vx:   randBetween(-8, 8),
-        vy:   randBetween(-14, -4),
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        size: randBetween(5, 10),
-        rot:  randBetween(0, Math.PI * 2),
-        rotV: randBetween(-0.2, 0.2),
-        life: 1,
-      });
-    }
+    const ctx   = canvas.getContext("2d")!;
+    const start = performance.now();
+    const particles = spawn(W, H, start);
 
     let raf: number;
-    let lastTime = performance.now();
 
-    function draw(now: number) {
-      const dt = Math.min((now - lastTime) / 16, 3); // cap at 3x speed
-      lastTime = now;
-
+    function tick(now: number) {
+      const elapsed = now - start;
       ctx.clearRect(0, 0, W, H);
 
-      let alive = false;
-      for (const p of particles) {
-        if (p.life <= 0) continue;
-        alive = true;
-
-        p.x   += p.vx * dt;
-        p.y   += p.vy * dt;
-        p.vy  += 0.35 * dt;  // gravity
-        p.rot += p.rotV * dt;
-        p.life -= 0.012 * dt;
-
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, p.life);
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
-        ctx.restore();
+      let alpha = 1;
+      if (elapsed > FADE_START) {
+        alpha = Math.max(0, 1 - (elapsed - FADE_START) / (DURATION - FADE_START));
       }
 
-      if (alive) raf = requestAnimationFrame(draw);
+      for (const p of particles) {
+        p.x   += p.vx;
+        p.y   += p.vy;
+        p.vy  += GRAVITY;
+        p.vx  *= AIR_RESISTANCE;
+        p.vy  *= AIR_RESISTANCE;
+        p.rot += p.rotV;
+        draw(ctx, p, alpha);
+      }
+
+      if (elapsed < DURATION) raf = requestAnimationFrame(tick);
+      else ctx.clearRect(0, 0, W, H);
     }
 
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(tick);
+    const destroy = setTimeout(() => cancelAnimationFrame(raf), 3000);
+
+    return () => {
+      clearTimeout(destroy);
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   return (
@@ -97,7 +123,7 @@ export function ConfettiExplosion() {
         position:      "fixed",
         inset:         0,
         pointerEvents: "none",
-        zIndex:        9999,
+        zIndex:        50,
       }}
     />
   );

@@ -4,9 +4,10 @@ import { useRouter }                    from "next/navigation";
 import { toast }                        from "sonner";
 import { generateAgreement }            from "@/lib/api-client";
 import { invTotal, interpolateTemplate } from "@/lib/utils";
-import { BG, BODY, BORDER, FONT, GREEN, MUTED, AMBER, TEXT, css } from "@/lib/styles";
+import { BG, BODY, BORDER, FONT, GREEN, MUTED, SUBTLE, AMBER, TEXT, css } from "@/lib/styles";
 import { SERVICE_TYPES, TERMS_TEMPLATES }   from "@/types";
 import { Loader2, Plus, Minus, Zap }        from "@/components/shared/Icons";
+import { HOSLogo }                          from "@/components/shared/HOSLogo";
 import type { DocType, DocItem, Doc, PaymentStatus } from "@/types";
 
 type Mode = "new" | "edit";
@@ -51,6 +52,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
   const [docType, setDocType]         = useState<DocType>(initialDoc?.type      ?? "both");
   const [name, setName]               = useState(initialDoc?.name               ?? "");
   const [company, setCompany]         = useState(initialDoc?.company            ?? "");
+  const [email, setEmail]             = useState(initialDoc?.email              ?? "");
   const [serviceType, setServiceType] = useState(initialDoc?.service_type       ?? "");
   const [serviceArea, setServiceArea] = useState(initialDoc?.service_area       ?? "");
   const [fee, setFee]                 = useState(mode === "edit" ? (initialDoc?.fee ?? "") : "100");
@@ -71,6 +73,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
   const [amountPaid, setAmountPaid]   = useState(
     initialDoc?.amount_paid?.toString() ?? "0"
   );
+  const [paymentLink, setPaymentLink] = useState(initialDoc?.payment_link ?? "");
 
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving]         = useState(false);
@@ -155,6 +158,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
       status,
       name:           name.trim(),
       company:        company.trim()  || undefined,
+      email:          email.trim()    || undefined,
       service_type:   serviceType     || undefined,
       service_area:   serviceArea     || undefined,
       fee:            fee             || undefined,
@@ -168,6 +172,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
     if (mode === "edit") {
       payload.payment_status = paymentStatus;
       payload.amount_paid    = parseFloat(amountPaid) || 0;
+      payload.payment_link   = paymentLink.trim() || undefined;
     }
 
     try {
@@ -189,7 +194,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error);
-        router.push(`/admin/share?code=${json.data.code}`);
+        router.push(`/admin/share?code=${json.data.code}${email.trim() ? "&sent=1" : ""}`);
       }
     } catch (err) {
       toast.error(`Save failed: ${String(err)}`);
@@ -218,11 +223,14 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
             <button onClick={() => router.push("/admin")} style={{ ...css.btnS, padding: "7px 14px", fontSize: 12 }}>
               ← Back
             </button>
+            <HOSLogo size={24} theme="dark" showWordmark={false} />
             <div>
-              <div style={{ fontSize: 9, letterSpacing: "2.5px", color: MUTED, fontFamily: BODY, fontWeight: 700 }}>HOS AUTOMATIONS</div>
-              <div style={{ fontFamily: FONT, fontSize: 16, fontWeight: 800, color: TEXT }}>
-                {mode === "edit" ? `EDIT — ${initialDoc?.name}` : "NEW DOCUMENT"}
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: MUTED, textTransform: "uppercase", marginBottom: 2 }}>
+                HOS Automations
               </div>
+              <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(20px, 3vw, 28px)", fontWeight: 400, fontStyle: "italic", color: TEXT, letterSpacing: "0.005em", margin: 0 }}>
+                {mode === "edit" ? `Edit — ${initialDoc?.name}` : "New Client"}
+              </h1>
             </div>
           </div>
         </div>
@@ -239,25 +247,25 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
 
         {/* Doc type */}
         <div style={css.card}>
-          <div style={css.lbl}>Document Type</div>
+          <div style={{ ...css.lbl, color: "rgba(139,107,62,0.5)", letterSpacing: "0.18em" }}>Document Type</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
             {(["both", "agreement", "invoice"] as DocType[]).map(t => (
               <button
                 key={t}
                 onClick={() => setDocType(t)}
                 style={{
-                  padding:      "12px 8px",
-                  borderRadius: 7,
-                  border:       `1px solid ${docType === t ? "rgba(245,240,235,0.3)" : BORDER}`,
-                  background:   docType === t ? "rgba(245,240,235,0.06)" : "transparent",
-                  color:        docType === t ? TEXT : MUTED,
-                  fontFamily:   FONT,
-                  fontSize:     13,
-                  fontWeight:   800,
-                  cursor:       "pointer",
-                  letterSpacing: "0.5px",
+                  padding:       "12px 8px",
+                  borderRadius:  7,
+                  border:        docType === t ? "none" : `1px solid #2A2A2A`,
+                  background:    docType === t ? "#8B6B3E" : "transparent",
+                  color:         docType === t ? "#F3F1EC" : MUTED,
+                  fontFamily:    "var(--font-mono)",
+                  fontSize:      10,
+                  fontWeight:    700,
+                  cursor:        "pointer",
+                  letterSpacing: "0.14em",
                   textTransform: "uppercase",
-                  transition:   "all 120ms",
+                  transition:    "all 120ms",
                 }}
               >
                 {t === "both" ? "Agreement + Invoice" : t === "agreement" ? "Agreement Only" : "Invoice Only"}
@@ -268,15 +276,19 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
 
         {/* Client details */}
         <div style={css.card}>
-          <div style={{ fontSize: 10, letterSpacing: "2px", fontWeight: 800, color: MUTED, fontFamily: BODY, marginBottom: 16 }}>CLIENT DETAILS</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "rgba(139,107,62,0.5)", textTransform: "uppercase", marginBottom: 16 }}>Client Details</div>
+          <div className="admin-client-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
               <label style={css.lbl}>Name *</label>
-              <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="John Smith" style={css.inp} />
+              <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="John Smith" autoComplete="name" style={css.inp} />
             </div>
             <div>
               <label style={css.lbl}>Company</label>
-              <input value={company} onChange={e => setCompany(e.target.value)} placeholder="Smith Plumbing LLC" style={css.inp} />
+              <input value={company} onChange={e => setCompany(e.target.value)} placeholder="Smith Plumbing LLC" autoComplete="organization" style={css.inp} />
+            </div>
+            <div>
+              <label style={css.lbl}>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="client@company.com" autoComplete="email" inputMode="email" style={css.inp} />
             </div>
             <div>
               <label style={css.lbl}>Service Type</label>
@@ -287,11 +299,11 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
             </div>
             <div>
               <label style={css.lbl}>Service Area</label>
-              <input value={serviceArea} onChange={e => setServiceArea(e.target.value)} placeholder="Phoenix, AZ" style={css.inp} />
+              <input value={serviceArea} onChange={e => setServiceArea(e.target.value)} placeholder="Phoenix, AZ" autoComplete="off" style={css.inp} />
             </div>
             <div>
               <label style={css.lbl}>Rate Per Call ($)</label>
-              <input value={fee} onChange={e => setFee(e.target.value)} placeholder="150" type="number" min="0" style={css.inp} />
+              <input value={fee} onChange={e => setFee(e.target.value)} placeholder="150" type="number" min="0" inputMode="decimal" style={css.inp} />
               <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                 {RATE_PRESETS.map(p => (
                   <button
@@ -321,7 +333,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
         {showAg && (
           <div style={css.card}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontSize: 10, letterSpacing: "2px", fontWeight: 800, color: MUTED, fontFamily: BODY }}>SERVICE AGREEMENT</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "rgba(139,107,62,0.5)", textTransform: "uppercase" }}>Service Agreement</div>
             </div>
 
             <div style={{ marginBottom: 14 }}>
@@ -368,7 +380,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
                     value={agreement}
                     onChange={e => setAgreement(e.target.value)}
                     rows={12}
-                    style={{ ...css.inp, fontFamily: "var(--font-serif)", fontSize: 13, lineHeight: 1.9, color: "#b0b0b0" }}
+                    style={{ ...css.inp, fontFamily: "var(--font-display)", fontSize: 13, lineHeight: 1.9, color: "#b0b0b0" }}
                   />
                 )}
               </div>
@@ -379,7 +391,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
         {/* Invoice */}
         {showInv && (
           <div style={css.card}>
-            <div style={{ fontSize: 10, letterSpacing: "2px", fontWeight: 800, color: MUTED, fontFamily: BODY, marginBottom: 16 }}>INVOICE</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "rgba(139,107,62,0.5)", textTransform: "uppercase", marginBottom: 16 }}>Invoice</div>
 
             <div style={{ marginBottom: 14 }}>
               <label style={css.lbl}>Quick-add Service</label>
@@ -389,14 +401,14 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
               </select>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 36px", gap: 8, marginBottom: 8 }}>
+            <div className="admin-line-item-header admin-line-item-row" style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 36px", gap: 8, marginBottom: 8 }}>
               {["Description", "Qty", "Price", ""].map((h, i) => (
                 <div key={i} style={{ ...css.lbl, marginBottom: 0 }}>{h}</div>
               ))}
             </div>
 
             {items.map(item => (
-              <div key={item.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 36px", gap: 8, marginBottom: 8, alignItems: "center" }}>
+              <div key={item.id} className="admin-line-item-row" style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 36px", gap: 8, marginBottom: 8, alignItems: "center" }}>
                 <input value={item.desc} onChange={e => updateItem(item.id, "desc", e.target.value)} placeholder="Service description" style={css.inp} />
                 <input value={item.qty} onChange={e => updateItem(item.id, "qty", e.target.value)} type="number" min="0" step="1" style={{ ...css.inp, textAlign: "right" }} />
                 <input value={item.price} onChange={e => updateItem(item.id, "price", e.target.value)} type="number" min="0" step="0.01" placeholder="0.00" style={{ ...css.inp, textAlign: "right", fontFamily: "var(--font-mono)" }} />
@@ -411,7 +423,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
               <button onClick={addItem} style={{ ...css.btnS, display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", fontSize: 12 }}>
                 <Plus size={12} /> Add Line
               </button>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 800, color: TEXT }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: TEXT }}>
                 Total: {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(total)}
               </div>
             </div>
@@ -432,7 +444,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
         {/* Payment status — edit mode only */}
         {mode === "edit" && (
           <div style={css.card}>
-            <div style={{ fontSize: 10, letterSpacing: "2px", fontWeight: 800, color: MUTED, fontFamily: BODY, marginBottom: 16 }}>PAYMENT STATUS</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "rgba(139,107,62,0.5)", textTransform: "uppercase", marginBottom: 16 }}>Payment Status</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
                 <label style={css.lbl}>Status</label>
@@ -463,6 +475,19 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
                 ⚠ Amount collected ({parseFloat(amountPaid).toFixed(2)}) is less than invoice total ({total.toFixed(2)}). Set to "Partially Paid" or increase the amount.
               </div>
             )}
+            <div style={{ marginTop: 14 }}>
+              <label style={css.lbl}>Payment Link (optional)</label>
+              <input
+                value={paymentLink}
+                onChange={e => setPaymentLink(e.target.value)}
+                placeholder="https://pay.stripe.com/..."
+                type="url"
+                style={css.inp}
+              />
+              <div style={{ fontSize: 11, color: SUBTLE, marginTop: 4, fontFamily: BODY }}>
+                Shown to client as a "Pay Now" button in their portal.
+              </div>
+            </div>
           </div>
         )}
       </div>

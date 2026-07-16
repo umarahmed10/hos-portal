@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { BODY, BORDER, FONT, GREEN, MUTED, SURF, SURF_HOVER, TEXT, css } from "@/lib/styles";
+import { BODY, BORDER, FONT, GREEN, MUTED, SURF, TEXT, css } from "@/lib/styles";
 import { Loader2 } from "@/components/shared/Icons";
 
 interface Message {
@@ -8,13 +8,21 @@ interface Message {
   content: string;
 }
 
-const GREETING: Message = {
-  role:    "assistant",
-  content: "Hi there! I'm the HOS Automations support assistant. I can help with billing, onboarding, call quality, and campaign questions. What can I help you with?",
-};
+const DEFAULT_GREETING = "Hi there! I'm the HOS Automations support assistant. I can help with billing, onboarding, call quality, and campaign questions. What can I help you with?";
 
-export function SupportChat() {
-  const [messages, setMessages] = useState<Message[]>([GREETING]);
+interface Props {
+  slug?:       string;
+  clientName?: string;
+}
+
+export function SupportChat({ clientName }: Props) {
+  const greeting: Message = {
+    role:    "assistant",
+    content: clientName
+      ? `Hi ${clientName}! I'm the HOS Automations support assistant. I can help with billing, onboarding, call quality, and campaign questions. What can I help you with?`
+      : DEFAULT_GREETING,
+  };
+  const [messages, setMessages] = useState<Message[]>([greeting]);
   const [input, setInput]       = useState("");
   const [loading, setLoading]   = useState(false);
   const bottomRef               = useRef<HTMLDivElement>(null);
@@ -38,7 +46,7 @@ export function SupportChat() {
       const res  = await fetch("/api/support-chat", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ messages: next.filter(m => m.role !== "assistant" || m !== GREETING) }),
+        body:    JSON.stringify({ messages: next.filter(m => m.role !== "assistant" || m !== greeting) }),
       });
       const json = await res.json();
 
@@ -83,7 +91,7 @@ export function SupportChat() {
           ◎
         </div>
         <div>
-          <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 800, color: TEXT, letterSpacing: "0.3px" }}>
+          <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: TEXT, letterSpacing: "0.3px" }}>
             HOS SUPPORT
           </div>
           <div style={{ fontSize: 10, color: GREEN, letterSpacing: "0.5px", fontFamily: BODY }}>

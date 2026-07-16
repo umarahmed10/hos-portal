@@ -1,9 +1,11 @@
 // GET  /api/docs — list all docs (admin dashboard polling)
 // POST /api/docs — create a new doc
 import { NextResponse }    from "next/server";
-import { getAllDocs, createDoc, logEvent } from "@/lib/data-access";
+import { randomBytes }    from "crypto";
+import { getAllDocs, createDoc, updateDoc, logEvent } from "@/lib/data-access";
 import { getAdminSession } from "@/lib/auth";
-import { genCode, invTotal } from "@/lib/utils";
+import { genCode, invTotal, slugify } from "@/lib/utils";
+import { sendPortalEmail } from "@/lib/send-portal-email";
 import { z }               from "zod";
 
 export async function GET() {
@@ -22,6 +24,7 @@ const CreateSchema = z.object({
   type:           z.enum(["both", "agreement", "invoice"]),
   name:           z.string().min(1),
   company:        z.string().optional(),
+  email:          z.string().email().optional().or(z.literal("")),
   service:        z.string().optional(),
   service_type:   z.string().optional(),
   service_area:   z.string().optional(),
@@ -55,14 +58,26 @@ export async function POST(req: Request) {
   try {
     const d    = parsed.data;
     const code = genCode();
-    const doc  = await createDoc({
+    let doc  = await createDoc({
       ...d,
       code,
       invoice_total: invTotal(d.items),
     });
 
+    // Generate slug immediately — ensures portal link always exists even if no email was sent
+    if (!doc.slug) {
+      const base = slugify((d.company || d.name).trim()).slice(0, 30) || "client";
+      const slug = `${base}-${randomBytes(4).toString("hex")}`;
+      doc = await updateDoc(code, { slug });
+    }
+
     // Log created event (non-blocking)
     logEvent(doc.id, "created", { name: doc.name, code: doc.code }).catch(() => {});
+
+    // Auto-send portal email if email is present and status is pending
+    if (doc.email && parsed.data.status !== "draft") {
+      sendPortalEmail({ code: doc.code }).catch(() => {});
+    }
 
     return NextResponse.json({ ok: true, data: doc }, { status: 201 });
   } catch (err) {

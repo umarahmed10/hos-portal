@@ -1,23 +1,15 @@
 "use client";
 // Admin-facing audit trail for a document.
 import { fmtDateTime } from "@/lib/utils";
-import { BODY, BORDER, GREEN, MUTED, SURF, TEXT } from "@/lib/styles";
-import type { DocEvent, DocEventType } from "@/types";
-
-const EVENT_META: Record<DocEventType, { label: string; icon: string; color: string }> = {
-  created:         { label: "Document created",          icon: "◎", color: "#555"  },
-  email_sent:      { label: "Access email sent",         icon: "✉", color: "#6366f1" },
-  viewed:          { label: "Document viewed",           icon: "◈", color: "#f59e0b" },
-  signed:          { label: "Agreement signed",          icon: "✓", color: GREEN    },
-  invoice_viewed:  { label: "Invoice viewed",            icon: "◈", color: "#f59e0b" },
-  payment_updated: { label: "Payment status updated",    icon: "$", color: "#22c55e" },
-};
+import { BODY, BORDER, MUTED, TEXT } from "@/lib/styles";
+import { getEventMeta } from "@/lib/operational-events";
+import type { DocEvent } from "@/types";
 
 function metaLabel(event: DocEvent): string {
   const m = event.metadata as Record<string, unknown>;
   if (event.event_type === "viewed" && m.via) return `Viewed via ${m.via}`;
-  if (event.event_type === "email_sent" && m.to) return `Sent to ${m.to}`;
-  return EVENT_META[event.event_type]?.label ?? event.event_type;
+  if (event.event_type === "email_sent" && m.to) return `Sent to ${String(m.to)}`;
+  return getEventMeta(event.event_type).label;
 }
 
 interface Props {
@@ -36,7 +28,7 @@ export function EventTimeline({ events }: Props) {
   return (
     <div style={{ position: "relative" }}>
       {events.map((evt, i) => {
-        const meta   = EVENT_META[evt.event_type] ?? { label: evt.event_type, icon: "·", color: MUTED };
+        const meta   = getEventMeta(evt.event_type);
         const isLast = i === events.length - 1;
 
         return (

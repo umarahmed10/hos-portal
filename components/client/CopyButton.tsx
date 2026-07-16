@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { css } from "@/lib/styles";
-import { Check, Copy } from "@/components/shared/Icons";
+import { Copy } from "@/components/shared/Icons";
 
 interface Props {
   text:     string;
@@ -16,7 +16,7 @@ export function CopyButton({ text, label = "Copy", size = "md", variant = "secon
   function handleCopy() {
     navigator.clipboard?.writeText(text).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      setTimeout(() => setCopied(false), 2000);
     });
   }
 
@@ -29,10 +29,20 @@ export function CopyButton({ text, label = "Copy", size = "md", variant = "secon
       onClick={handleCopy}
       style={{ ...base, padding: pad, fontSize: fs, display: "inline-flex", alignItems: "center", gap: 6 }}
     >
-      {copied
-        ? <span className="copied-badge"><Check size={13} />Copied!</span>
-        : <><Copy size={13} />{" "}{label}</>
-      }
+      <span style={{
+        display:    "inline-block",
+        transition: "transform 150ms var(--ease-spring)",
+        transform:  copied ? "scale(1.2)" : "scale(1)",
+      }}>
+        {copied ? (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ animation: "scalePop 200ms var(--ease-spring)" }}>
+            <polyline points="1,6 4.5,10 11,2" stroke="#4EAD87" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <Copy size={12} />
+        )}
+      </span>
+      {copied ? "Copied!" : label}
     </button>
   );
 }

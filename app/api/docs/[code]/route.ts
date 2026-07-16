@@ -9,6 +9,7 @@ const UpdateSchema = z.object({
   type:           z.enum(["both", "agreement", "invoice"]).optional(),
   name:           z.string().min(1).optional(),
   company:        z.string().optional(),
+  email:          z.string().email().optional().or(z.literal("")),
   service:        z.string().optional(),
   service_type:   z.string().optional(),
   service_area:   z.string().optional(),
@@ -27,6 +28,16 @@ const UpdateSchema = z.object({
   // Payment fields
   payment_status: z.enum(["unpaid", "partially_paid", "paid"]).optional(),
   amount_paid:    z.number().min(0).optional(),
+  payment_link:   z.string().url().nullable().optional(),
+  // Performance fields
+  calls_total:      z.number().int().min(0).optional(),
+  calls_qualified:  z.number().int().min(0).optional(),
+  jobs_booked:      z.number().int().min(0).optional(),
+  ad_spend:         z.number().min(0).optional(),
+  avg_job_value:    z.number().min(0).optional(),
+  monthly_budget:   z.number().min(0).optional(),
+  monthly_call_cap: z.number().int().min(0).optional(),
+  rate_per_call:    z.number().min(0).optional(),
 });
 
 export async function PATCH(

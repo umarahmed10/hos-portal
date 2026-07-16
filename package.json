@@ -10,12 +10,12 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@livekit/components-react": "^2.9.23",
+    "@livekit/components-styles": "^1.2.0",
     "@react-pdf/renderer": "^4.1.6",
     "@supabase/supabase-js": "^2.47.0",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
-    "@livekit/components-react": "^2.9.23",
-    "@livekit/components-styles": "^1.2.0",
     "jose": "^5.9.6",
     "livekit-client": "^2.20.1",
     "livekit-server-sdk": "^2.17.0",

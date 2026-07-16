@@ -1,20 +1,24 @@
 "use client";
-import { useState }               from "react";
-import { useRouter }              from "next/navigation";
-import { toast }                  from "sonner";
-import { supabase }               from "@/lib/supabase-browser";
-import { cleanCode }              from "@/lib/utils";
-import { BODY, FONT, MONO, MUTED, TEXT, css } from "@/lib/styles";
+import { useState }   from "react";
+import { useRouter }  from "next/navigation";
+import { toast }      from "sonner";
+import { supabase }   from "@/lib/supabase-browser";
+import { cleanCode }  from "@/lib/utils";
+import { MUTED, TEXT, css } from "@/lib/styles";
+import { Loader2 }    from "@/components/shared/Icons";
 
 export function ClientCodeEntry() {
   const router   = useRouter();
   const [code, setCode]       = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleAccess() {
-    const clean = cleanCode(code);
-    if (clean.length < 6) return;
+  function sanitize(raw: string) {
+    return raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  }
 
+  async function handleAccess() {
+    const clean = sanitize(code);
+    if (clean.length < 6) return;
     setLoading(true);
 
     const { data } = await supabase
@@ -26,7 +30,7 @@ export function ClientCodeEntry() {
     setLoading(false);
 
     if (!data) {
-      toast.error("Code not found. Double-check and try again.");
+      toast.error("That code doesn't look right. Check your email and try again.");
       return;
     }
 
@@ -34,21 +38,52 @@ export function ClientCodeEntry() {
   }
 
   return (
-    <div style={{ maxWidth: 400, width: "100%", padding: "0 24px" }}>
-      <div style={{ fontSize: 10, letterSpacing: "2.5px", fontWeight: 800, color: MUTED, fontFamily: BODY, marginBottom: 10 }}>
-        CLIENT ACCESS
+    <div style={{
+      maxWidth:  400,
+      width:     "100%",
+      padding:   "0 24px",
+      animation: "fadeIn 320ms var(--ease-out) both",
+    }}>
+      {/* Bronze mono label */}
+      <div style={{
+        fontFamily:    "var(--font-mono)",
+        fontSize:      9,
+        letterSpacing: "0.18em",
+        textTransform: "uppercase",
+        color:         "rgba(139,107,62,0.5)",
+        marginBottom:  16,
+      }}>
+        Client Access
       </div>
-      <h2 style={{ fontFamily: FONT, fontSize: 48, fontWeight: 900, letterSpacing: "-0.5px", lineHeight: 1, color: TEXT, marginBottom: 12 }}>
-        ENTER YOUR<br />CODE
-      </h2>
-      <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.7, marginBottom: 28 }}>
-        Your HOS rep shared a 6-character access code with you.
+
+      {/* Editorial heading */}
+      <h1 style={{
+        fontFamily:    "var(--font-display)",
+        fontSize:      "clamp(36px, 7vw, 56px)",
+        fontWeight:    300,
+        fontStyle:     "italic",
+        letterSpacing: "-0.01em",
+        lineHeight:    0.95,
+        color:         TEXT,
+        marginBottom:  12,
+      }}>
+        Enter your code.
+      </h1>
+
+      <p style={{
+        fontFamily:   "var(--font-body)",
+        fontSize:     14,
+        color:        MUTED,
+        lineHeight:   1.65,
+        marginBottom: 28,
+      }}>
+        Your 6-character access code was included in the email from HOS Automations.
       </p>
 
       <input
         value={code}
-        onChange={(e) => setCode(cleanCode(e.target.value))}
-        onKeyDown={(e) => e.key === "Enter" && handleAccess()}
+        onChange={e => setCode(sanitize(e.target.value))}
+        onKeyDown={e => e.key === "Enter" && handleAccess()}
         maxLength={6}
         placeholder="A1B2C3"
         autoCapitalize="characters"
@@ -57,12 +92,12 @@ export function ClientCodeEntry() {
         style={{
           ...css.inp,
           fontSize:      32,
-          fontWeight:    700,
-          letterSpacing: "10px",
+          fontFamily:    "var(--font-mono)",
+          letterSpacing: "0.2em",
           textAlign:     "center",
-          padding:       "20px 14px",
+          padding:       "18px 14px",
           marginBottom:  16,
-          fontFamily:    MONO,
+          textTransform: "uppercase",
         }}
       />
 
@@ -71,16 +106,29 @@ export function ClientCodeEntry() {
         disabled={code.length < 6 || loading}
         style={{
           ...css.btnP,
-          width:   "100%",
-          opacity: code.length < 6 || loading ? 0.35 : 1,
-          cursor:  code.length < 6 || loading ? "not-allowed" : "pointer",
+          width:         "100%",
+          opacity:       code.length < 6 || loading ? 0.35 : 1,
+          cursor:        code.length < 6 || loading ? "not-allowed" : "pointer",
+          fontSize:      13,
+          fontFamily:    "var(--font-ui)",
+          fontWeight:    600,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
         }}
       >
-        {loading ? "CHECKING…" : "ACCESS MY DOCUMENTS →"}
+        {loading ? (
+          <>
+            <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+            Verifying…
+          </>
+        ) : "Enter My Portal →"}
       </button>
 
-      <p style={{ fontSize: 12, color: "#333", marginTop: 20, textAlign: "center" }}>
-        Forgot your code? Contact your HOS rep.
+      <p style={{ fontSize: 12, color: MUTED, marginTop: 20, textAlign: "center", fontFamily: "var(--font-body)", opacity: 0.5 }}>
+        Questions?{" "}
+        <a href="mailto:team@hosautomations.co" style={{ color: MUTED, textDecoration: "underline", textDecorationColor: "rgba(114,114,114,0.3)" }}>
+          team@hosautomations.co
+        </a>
       </p>
     </div>
   );

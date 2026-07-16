@@ -100,3 +100,8 @@ export async function emailClient(
 ): Promise<ApiResponse> {
   return post("/api/email-client", input);
 }
+
+/** Clear portal client session cookie. */
+export async function logoutPortal(): Promise<ApiResponse> {
+  return post("/api/portal-logout", {});
+}

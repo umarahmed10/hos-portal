@@ -8,130 +8,220 @@ import type { CSSProperties } from "react";
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPOGRAPHY
 // ─────────────────────────────────────────────────────────────────────────────
-export const FONT = "var(--font-header)";  // Barlow Condensed — headers, labels
-export const BODY = "var(--font-body)";    // Barlow — body text, UI
-export const MONO = "var(--font-mono)";    // JetBrains Mono — codes, numbers
-export const SERIF = "var(--font-serif)";  // Georgia — agreement text
+export const DISPLAY = "var(--font-display)"; // Cormorant Garamond — headlines, display
+export const UI      = "var(--font-ui)";      // Space Grotesk — all UI, H2, buttons, KPIs
+export const BODY    = "var(--font-body)";    // DM Sans — body copy, supporting text
+export const MONO    = "var(--font-mono)";    // DM Mono — labels, codes, numbers
+
+// Legacy aliases — keep for files that still reference FONT/SERIF
+export const FONT  = UI;
+export const SERIF = DISPLAY;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COLORS
+// COLORS — matte black + bone white + deep bronze
 // ─────────────────────────────────────────────────────────────────────────────
-export const BG          = "#090909";
-export const SURF        = "#111111";
-export const SURF_HOVER  = "#161616";
-export const BORDER      = "#1d1d1d";
-export const BORDER_LIGHT = "#2a2a2a";
-export const TEXT        = "#f5f0eb";
-export const MUTED       = "#555555";
-export const SUBTLE      = "#777777";
-export const GREEN       = "#22c55e";
-export const GREEN_DIM   = "rgba(34,197,94,0.10)";
-export const GREEN_BORDER = "rgba(34,197,94,0.25)";
-export const AMBER       = "#eab308";
-export const AMBER_DIM   = "rgba(234,179,8,0.08)";
-export const AMBER_BORDER = "rgba(234,179,8,0.20)";
-export const RED         = "#ef4444";
-export const RED_DIM     = "rgba(239,68,68,0.10)";
+export const BG           = "#111111";   // Matte Black — primary background (55%)
+export const SURF         = "#1A1A1A";   // Elevated surface (glass panels)
+export const SURF_2       = "#222222";   // Input backgrounds
+export const SURF_HOVER   = "#252525";
+export const BORDER       = "#2A2A2A";   // Graphite borders (dark surfaces)
+export const BORDER_LIGHT = "#333333";
+export const TEXT         = "#F3F1EC";   // Bone White — primary text (30%)
+export const MUTED        = "#727272";   // Slate Grey — secondary text
+export const SUBTLE       = "#404040";   // Ghost text
+
+// Bronze accent — <5% usage only
+export const GOLD         = "#8B6B3E";       // Deep Bronze
+export const GOLD_DIM     = "rgba(139,107,62,0.09)";
+export const GOLD_BORDER  = "rgba(139,107,62,0.22)";
+
+// Success / signed
+export const GREEN        = "#4EAD87";
+export const GREEN_DIM    = "rgba(78,173,135,0.09)";
+export const GREEN_BORDER = "rgba(78,173,135,0.22)";
+
+// Warning / pending
+export const AMBER        = "#D4926A";
+export const AMBER_DIM    = "rgba(212,146,106,0.09)";
+export const AMBER_BORDER = "rgba(212,146,106,0.22)";
+
+// Error
+export const RED          = "#C96A6A";
+export const RED_DIM      = "rgba(201,106,106,0.10)";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // REUSABLE STYLE OBJECTS
 // ─────────────────────────────────────────────────────────────────────────────
 export const css = {
-  // Full-page wrapper — applied to every page's outermost div
   app: {
     background: BG,
     minHeight:  "100vh",
     color:      TEXT,
     fontFamily: BODY,
-    fontSize:   14,
+    fontSize:   15,
   } as CSSProperties,
 
-  // Centered content container
   wrap: {
-    maxWidth: 720,
+    maxWidth: 680,
     margin:   "0 auto",
-    padding:  "0 24px",
+    padding:  "0 20px",
   } as CSSProperties,
 
-  // Content card
   card: {
     background:   SURF,
     border:       `1px solid ${BORDER}`,
-    borderRadius: 10,
+    borderRadius: 12,
     padding:      24,
-    marginBottom: 14,
+    marginBottom: 12,
   } as CSSProperties,
 
-  // Form input
   inp: {
-    background:  "#0c0c0c",
-    border:      `1px solid #242424`,
-    borderRadius: 7,
-    padding:     "10px 13px",
-    color:       TEXT,
-    fontSize:    14,
-    width:       "100%",
-    outline:     "none",
-    fontFamily:  BODY,
-    colorScheme: "dark",
-    boxSizing:   "border-box",
+    background:   SURF_2,
+    border:       `1px solid ${BORDER}`,
+    borderRadius: 8,
+    padding:      "12px 14px",
+    color:        TEXT,
+    fontSize:     15,
+    width:        "100%",
+    outline:      "none",
+    fontFamily:   BODY,
+    colorScheme:  "dark",
+    boxSizing:    "border-box",
+    transition:   "border-color 180ms",
   } as CSSProperties,
 
-  // Form label
   lbl: {
     color:         MUTED,
     fontSize:      10,
-    fontWeight:    600,
-    letterSpacing: "1.2px",
+    fontWeight:    500,
+    letterSpacing: "0.13em",
     textTransform: "uppercase",
     display:       "block",
     marginBottom:  6,
-    fontFamily:    BODY,
+    fontFamily:    MONO,
   } as CSSProperties,
 
-  // Primary button — cream bg, dark text
+  // Primary: Bone White bg, Matte Black text
   btnP: {
     background:    TEXT,
-    color:         "#0a0a0a",
+    color:         "#111111",
     border:        "none",
-    padding:       "11px 24px",
-    borderRadius:  7,
+    padding:       "14px 28px",
+    borderRadius:  8,
     fontSize:      13,
-    fontWeight:    800,
+    fontWeight:    600,
     cursor:        "pointer",
-    fontFamily:    FONT,
-    letterSpacing: "0.8px",
-    textTransform: "uppercase",
-    transition:    "opacity 150ms",
+    fontFamily:    UI,
+    letterSpacing: "0.02em",
+    minHeight:     52,
+    display:       "inline-flex",
+    alignItems:    "center",
+    justifyContent: "center",
+    gap:           8,
+    transition:    "opacity 150ms, transform 150ms",
   } as CSSProperties,
 
-  // Secondary button — transparent bg, subtle border
+  // Secondary: transparent, border
   btnS: {
     background:   "transparent",
-    color:        SUBTLE,
-    border:       `1px solid #242424`,
-    padding:      "11px 24px",
-    borderRadius: 7,
+    color:        MUTED,
+    border:       `1px solid ${BORDER}`,
+    padding:      "12px 20px",
+    borderRadius: 8,
     fontSize:     13,
-    fontWeight:   600,
+    fontWeight:   500,
     cursor:       "pointer",
-    fontFamily:   BODY,
-    transition:   "color 150ms, border-color 150ms",
+    fontFamily:   UI,
+    minHeight:    44,
+    display:      "inline-flex",
+    alignItems:   "center",
+    justifyContent: "center",
+    gap:          8,
+    transition:   "border-color 150ms, color 150ms",
   } as CSSProperties,
 
-  // Danger button — subtle red
+  // Ghost: no border, muted text
+  btnG: {
+    background:   "transparent",
+    color:        SUBTLE,
+    border:       "none",
+    padding:      "10px 16px",
+    borderRadius: 8,
+    fontSize:     13,
+    fontWeight:   500,
+    cursor:       "pointer",
+    fontFamily:   UI,
+    minHeight:    40,
+  } as CSSProperties,
+
+  // Danger
   btnD: {
     background:   RED_DIM,
     color:        RED,
-    border:       `1px solid rgba(239,68,68,0.25)`,
-    padding:      "11px 24px",
-    borderRadius: 7,
+    border:       `1px solid rgba(201,106,106,0.25)`,
+    padding:      "12px 20px",
+    borderRadius: 8,
     fontSize:     13,
     fontWeight:   600,
     cursor:       "pointer",
-    fontFamily:   BODY,
-    transition:   "opacity 150ms",
+    fontFamily:   UI,
   } as CSSProperties,
+
+  // Bronze accent button — use sparingly
+  btnAccent: {
+    background:    GOLD,
+    color:         TEXT,
+    border:        "none",
+    padding:       "14px 28px",
+    borderRadius:  8,
+    fontSize:      13,
+    fontWeight:    600,
+    cursor:        "pointer",
+    fontFamily:    UI,
+    letterSpacing: "0.02em",
+    minHeight:     52,
+    display:       "inline-flex",
+    alignItems:    "center",
+    justifyContent: "center",
+    gap:           8,
+  } as CSSProperties,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERACTIVE BUTTON HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+export const primaryBtnHandlers = {
+  onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!e.currentTarget.disabled) {
+      e.currentTarget.style.opacity   = "0.92";
+      e.currentTarget.style.transform = "translateY(-1px)";
+      e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.25)";
+    }
+  },
+  onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.opacity   = "1";
+    e.currentTarget.style.transform = "translateY(0)";
+    e.currentTarget.style.boxShadow = "none";
+  },
+  onMouseDown: (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.transform = "translateY(0) scale(0.97)";
+  },
+  onMouseUp: (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.transform = "translateY(-1px) scale(1)";
+  },
+};
+
+export const secondaryBtnHandlers = {
+  onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!e.currentTarget.disabled) {
+      e.currentTarget.style.borderColor = "rgba(139,107,62,0.4)";
+      e.currentTarget.style.color       = "#F3F1EC";
+    }
+  },
+  onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.borderColor = "#2A2A2A";
+    e.currentTarget.style.color       = "#727272";
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,12 +242,11 @@ export function badge(status: string): CSSProperties {
     padding:       "3px 10px",
     borderRadius:  20,
     fontSize:      11,
-    fontWeight:    700,
-    fontFamily:    BODY,
+    fontWeight:    600,
+    fontFamily:    UI,
     background:    s.bg,
     color:         s.color,
     border:        `1px solid ${s.border}`,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
+    letterSpacing: "0.3px",
   };
 }

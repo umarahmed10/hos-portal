@@ -1,7 +1,7 @@
 "use client";
-import Link          from "next/link";
+import Link            from "next/link";
 import { usePathname } from "next/navigation";
-import { BODY, BORDER, BG, MUTED, SURF, TEXT } from "@/lib/styles";
+import { BORDER, BG, GOLD, MUTED, TEXT } from "@/lib/styles";
 
 interface NavItem {
   label: string;
@@ -10,54 +10,68 @@ interface NavItem {
 
 interface Props {
   slug: string;
+  mode: "active" | "onboarding";
 }
 
-export function PortalNav({ slug }: Props) {
+export function PortalNav({ slug, mode }: Props) {
   const pathname = usePathname();
 
-  const items: NavItem[] = [
-    { label: "Status",            href: `/portal/${slug}/status`    },
-    { label: "Documents",         href: `/portal/${slug}/documents` },
-    { label: "Invoices",          href: `/portal/${slug}/invoices`  },
-    { label: "Call Reports",      href: `/portal/${slug}/reports`   },
-    { label: "Campaign Updates",  href: `/portal/${slug}/campaigns` },
-    { label: "Support",           href: `/portal/${slug}/support`   },
+  const activeItems: NavItem[] = [
+    { label: "Dashboard", href: `/portal/${slug}/dashboard`   },
+    { label: "Calls",     href: `/portal/${slug}/performance` },
+    { label: "Billing",   href: `/portal/${slug}/invoices`    },
   ];
 
+  const onboardingItems: NavItem[] = [
+    { label: "Status",    href: `/portal/${slug}/status`    },
+    { label: "Documents", href: `/portal/${slug}/documents` },
+    { label: "Billing",   href: `/portal/${slug}/invoices`  },
+  ];
+
+  const items = mode === "active" ? activeItems : onboardingItems;
+
   return (
-    <nav style={{
-      borderBottom:  `1px solid ${BORDER}`,
-      background:    BG,
-      overflowX:     "auto",
+    <nav className="portal-nav-scroll" style={{
+      borderBottom: `1px solid ${BORDER}`,
+      background:   BG,
+      overflowX:    "auto",
       WebkitOverflowScrolling: "touch",
-      scrollbarWidth: "none",
     }}>
       <div style={{
-        display:    "flex",
-        gap:        0,
-        minWidth:   "max-content",
-        padding:    "0 24px",
-        maxWidth:   900,
-        margin:     "0 auto",
+        display:   "flex",
+        gap:       0,
+        minWidth:  "max-content",
+        padding:   "0 20px",
+        maxWidth:  800,
+        margin:    "0 auto",
       }}>
         {items.map(item => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isActive = pathname === item.href
+            || pathname.startsWith(item.href + "/");
+
           return (
             <Link
               key={item.href}
               href={item.href}
               style={{
-                display:       "block",
-                padding:       "14px 16px",
-                fontSize:      13,
-                fontWeight:    isActive ? 700 : 500,
-                fontFamily:    BODY,
-                color:         isActive ? TEXT : MUTED,
+                display:        "block",
+                padding:        "14px 16px",
+                fontSize:       9,
+                fontWeight:     isActive ? 700 : 400,
+                fontFamily:     "var(--font-mono)",
+                letterSpacing:  "0.14em",
+                textTransform:  "uppercase",
+                color:          isActive ? TEXT : MUTED,
                 textDecoration: "none",
-                borderBottom:  isActive ? `2px solid ${TEXT}` : "2px solid transparent",
-                whiteSpace:    "nowrap",
-                transition:    "color 150ms, border-color 150ms",
-                letterSpacing: isActive ? "0.2px" : 0,
+                whiteSpace:     "nowrap",
+                flexShrink:     0,
+                /*
+                 * Active indicator: CSS border-bottom derived from pathname.
+                 * Computed server-side — correct on first paint, no DOM measurement,
+                 * no hydration mismatch.
+                 */
+                borderBottom:   isActive ? `2px solid ${GOLD}` : "2px solid transparent",
+                transition:     "color 150ms, border-color 150ms",
               }}
             >
               {item.label}

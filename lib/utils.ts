@@ -21,6 +21,16 @@ export function fmt(value: string | Date | null | undefined): string {
   }
 }
 
+/** "June 5, 2026" */
+export function fmtDate(d: Date): string {
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+/** "Jun 5" */
+export function fmtDateShort(d: Date): string {
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 /** "Jun 5, 2026 at 2:34 PM" */
 export function fmtDateTime(value: string | Date | null | undefined): string {
   if (!value) return "—";
@@ -125,4 +135,18 @@ export function cleanCode(raw: string): string {
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+/** "just now", "5m ago", "2h ago", "3d ago", or "Jun 5" */
+export function fmtRelative(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const diff = Date.now() - new Date(value).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 2)   return "just now";
+  if (mins < 60)  return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)   return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7)   return `${days}d ago`;
+  return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }

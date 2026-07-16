@@ -1,12 +1,15 @@
 // Portal shell layout — persistent header + tab nav for all sub-routes.
-// Server component: reads session cookie to get doc, renders nav + client name.
-import { notFound, redirect } from "next/navigation";
-import { getPortalSession }   from "@/lib/portal-auth";
-import { getDocBySlug }       from "@/lib/data-access";
-import { PortalNav }          from "@/components/client/PortalNav";
-import { BODY, BORDER, BG, FONT, MUTED, SURF, TEXT } from "@/lib/styles";
-import { StatusBadge }        from "@/components/server/StatusBadge";
-import { CommsFAB }           from "@/components/comms/CommsFAB";
+import { notFound }                from "next/navigation";
+import { getPortalSession }        from "@/lib/portal-auth";
+import { getDocBySlug }            from "@/lib/data-access";
+import { PortalNav }               from "@/components/client/PortalNav";
+import { StatusBadge }             from "@/components/server/StatusBadge";
+import { PortalLogoutButton }      from "@/components/client/PortalLogoutButton";
+import { AutoRefresh }             from "@/components/client/AutoRefresh";
+import { HOSLogo }                 from "@/components/shared/HOSLogo";
+import { FloatingSupport }         from "@/components/client/FloatingSupport";
+import { CommsFAB }                from "@/components/comms/CommsFAB";
+import { BORDER, BG, MUTED, TEXT } from "@/lib/styles";
 
 interface Props {
   children: React.ReactNode;
@@ -14,62 +17,85 @@ interface Props {
 }
 
 export default async function PortalLayout({ children, params }: Props) {
-  const { slug }  = await params;
-  const session   = await getPortalSession();
+  const { slug } = await params;
+  const session  = await getPortalSession();
 
-  // Middleware already guards /portal/[slug]/*; this is a belt-and-suspenders check.
+  // No active session → render children without the portal shell.
+  // The entry page handles its own auth to avoid infinite redirect loops.
   if (!session || session.slug !== slug) {
-    redirect(`/portal/${slug}`);
+    return <>{children}</>;
   }
 
   const doc = await getDocBySlug(slug);
   if (!doc) notFound();
 
+  const isActive = doc.payment_status === "paid";
+
   return (
     <div style={{ background: BG, minHeight: "100vh", color: TEXT, fontFamily: "var(--font-body)" }}>
 
       {/* Top bar */}
-      <div style={{ borderBottom: `1px solid ${BORDER}`, background: BG }}>
+      <div style={{ borderBottom: `1px solid rgba(243,241,236,0.05)`, background: "#111111" }}>
         <div style={{
-          maxWidth:    900,
-          margin:      "0 auto",
-          padding:     "14px 24px",
-          display:     "flex",
-          alignItems:  "center",
+          maxWidth:       800,
+          margin:         "0 auto",
+          padding:        "14px 20px",
+          display:        "flex",
+          alignItems:     "center",
           justifyContent: "space-between",
-          gap:         16,
+          gap:            16,
         }}>
-          <div>
-            <div style={{ fontSize: 9, letterSpacing: "2.5px", color: MUTED, fontFamily: "var(--font-body)", fontWeight: 700, marginBottom: 2 }}>
-              HOS AUTOMATIONS
-            </div>
-            <div style={{ fontFamily: "var(--font-header)", fontSize: 18, fontWeight: 800, color: TEXT, letterSpacing: "0.3px" }}>
-              CLIENT PORTAL
+          {/* Brand */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <HOSLogo size={24} theme="dark" showWordmark={false} />
+            <div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "2px", color: MUTED, textTransform: "uppercase", marginBottom: 1 }}>
+                HOS Automations
+              </div>
+              <div style={{ fontFamily: "var(--font-ui)", fontSize: 12, fontWeight: 600, color: TEXT, letterSpacing: "0.3px" }}>
+                Client Portal
+              </div>
             </div>
           </div>
 
-          <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-            <div style={{ fontWeight: 600, fontSize: 14, color: TEXT }}>
-              {doc.name}
+          {/* Right — client info + status + logout */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end", minWidth: 0 }}>
+            <div style={{ textAlign: "right", minWidth: 0, maxWidth: 160, overflow: "hidden" }}>
+              <div style={{ fontFamily: "var(--font-ui)", fontWeight: 600, fontSize: 13, color: TEXT, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {doc.name}
+              </div>
+              {doc.company && (
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: MUTED, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {doc.company}
+                </div>
+              )}
             </div>
-            {doc.company && (
-              <div style={{ fontSize: 11, color: MUTED }}>{doc.company}</div>
-            )}
             <StatusBadge status={doc.status} />
+            <PortalLogoutButton slug={slug} />
           </div>
         </div>
       </div>
 
-      {/* Tab nav */}
-      <PortalNav slug={slug} />
+      {/* Tab nav — only shown when portal is active (paid) */}
+      {isActive ? (
+        <PortalNav slug={slug} mode="active" />
+      ) : (
+        <PortalNav slug={slug} mode="onboarding" />
+      )}
 
       {/* Page content */}
-      <main style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px 80px" }}>
+      <main style={{ maxWidth: 800, margin: "0 auto", padding: "28px 20px 100px" }}>
         {children}
       </main>
 
-      {/* Floating call button — links to /comms-test/client/[code] */}
+      {/* Floating call button (left of support bubble) */}
       <CommsFAB code={doc.code} />
+
+      {/* Floating support button */}
+      <FloatingSupport slug={slug} name={doc.name} />
+
+      {/* Silently refresh server data every 30s so nav mode and payment status stay current */}
+      <AutoRefresh intervalMs={30000} />
     </div>
   );
 }

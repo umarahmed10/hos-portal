@@ -1,18 +1,20 @@
 // Server Component — fetches doc by code query param, renders share screen.
 import { notFound }    from "next/navigation";
-import { getDocByCode } from "@/lib/data-access";
+import { getDocByCode, getDocEvents } from "@/lib/data-access";
 import { AdminShare }   from "@/components/client/AdminShare";
 
 interface Props {
-  searchParams: Promise<{ code?: string }>;
+  searchParams: Promise<{ code?: string; sent?: string }>;
 }
 
 export default async function AdminSharePage({ searchParams }: Props) {
-  const { code } = await searchParams;
+  const { code, sent } = await searchParams;
   if (!code) notFound();
 
-  const doc = await getDocByCode(code);
+  const doc    = await getDocByCode(code);
   if (!doc) notFound();
 
-  return <AdminShare doc={doc} />;
+  const events = await getDocEvents(doc.id).catch(() => []);
+
+  return <AdminShare doc={doc} events={events} sent={sent === "1"} />;
 }

@@ -8,7 +8,6 @@ import { createClient } from "@supabase/supabase-js";
 import type {
   Doc,
   DocEvent,
-  DocEventType,
   CreateDocInput,
   UpdateDocInput,
   PaymentStatus,
@@ -39,19 +38,23 @@ function getAnonClient() {
 // Explicit column list — no select('*') anywhere. Keep in sync with types/index.ts Doc.
 const DOC_COLUMNS = [
   "id", "code", "status", "type",
-  "name", "company", "service", "service_type", "service_area",
+  "name", "company", "email", "service", "service_type", "service_area",
   "date", "fee", "agreement_text",
   "items", "invoice_total", "due_date", "pay_notes",
   "payment_status", "amount_paid",
-  "slug", "magic_token_hash",
+  "slug", "magic_token_hash", "magic_token_expires_at", "payment_link",
   "first_view_ip", "first_view_ua", "signed_ip", "signed_ua",
   "accepted_esign_terms",
   "signature", "signed_at",
+  "calls_total", "calls_qualified", "jobs_booked", "ad_spend", "avg_job_value", "monthly_budget", "monthly_call_cap", "rate_per_call",
+  "stripe_payment_link_id", "stripe_payment_link_url", "stripe_session_id", "stripe_customer_email", "paid_at",
   "created_at", "updated_at",
 ].join(", ");
 
 const EVENT_COLUMNS = [
-  "id", "doc_id", "event_type", "metadata", "ip_address", "user_agent", "created_at",
+  "id", "doc_id", "event_type", "metadata",
+  "detail", "posted_by", "visible_to_client",
+  "ip_address", "user_agent", "created_at",
 ].join(", ");
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -185,12 +188,17 @@ export async function archiveDoc(code: string): Promise<void> {
 export async function updateDocMagicLink(
   code:      string,
   slug:      string,
-  tokenHash: string
+  tokenHash: string,
+  expiresAt?: string,
+  email?:    string
 ): Promise<void> {
-  const db = getAdminClient();
+  const db      = getAdminClient();
+  const payload: Record<string, unknown> = { slug, magic_token_hash: tokenHash };
+  if (expiresAt) payload.magic_token_expires_at = expiresAt;
+  if (email)     payload.email = email;
   const { error } = await db
     .from("docs")
-    .update({ slug, magic_token_hash: tokenHash })
+    .update(payload)
     .eq("code", code.toUpperCase());
 
   if (error) throw new Error(`[data-access] updateDocMagicLink: ${error.message}`);
@@ -321,24 +329,43 @@ export async function signDoc(
  * if you don't need to block on it.
  */
 export async function logEvent(
-  docId:     string,
-  eventType: DocEventType,
-  metadata:  Record<string, unknown> = {},
-  ip:        string | null = null,
-  ua:        string | null = null
+  docId:            string,
+  eventType:        string,
+  metadata:         Record<string, unknown> = {},
+  ip:               string | null = null,
+  ua:               string | null = null,
+  detail:           string | null = null,
+  postedBy:         string | null = null,
+  visibleToClient:  boolean = true
 ): Promise<void> {
   const db = getAdminClient();
   const { error } = await db
     .from("doc_events")
     .insert({
-      doc_id:     docId,
-      event_type: eventType,
+      doc_id:            docId,
+      event_type:        eventType,
       metadata,
-      ip_address: ip,
-      user_agent: ua,
+      ip_address:        ip,
+      user_agent:        ua,
+      detail,
+      posted_by:         postedBy,
+      visible_to_client: visibleToClient,
     });
 
   if (error) throw new Error(`[data-access] logEvent: ${error.message}`);
+}
+
+export async function getClientEvents(docId: string): Promise<DocEvent[]> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("doc_events")
+    .select(EVENT_COLUMNS)
+    .eq("doc_id", docId)
+    .eq("visible_to_client", true)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(`[data-access] getClientEvents: ${error.message}`);
+  return (data ?? []) as unknown as DocEvent[];
 }
 
 /**
@@ -355,4 +382,43 @@ export async function getDocEvents(docId: string): Promise<DocEvent[]> {
 
   if (error) throw new Error(`[data-access] getDocEvents: ${error.message}`);
   return (data ?? []) as unknown as DocEvent[];
+}
+
+/**
+ * Fetch a doc by its Stripe payment link ID.
+ * Used by: webhook handler for payment completion.
+ */
+export async function getDocByStripeLink(paymentLinkId: string): Promise<Doc | null> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("docs")
+    .select(DOC_COLUMNS)
+    .eq("stripe_payment_link_id", paymentLinkId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as unknown as Doc;
+}
+
+/**
+ * Convenience wrapper around logEvent for structured operational events.
+ */
+export async function logDocEvent(
+  docId: string,
+  event: {
+    event_type:        string;
+    detail?:           string;
+    posted_by?:        string;
+    visible_to_client?: boolean;
+  }
+): Promise<void> {
+  return logEvent(
+    docId,
+    event.event_type,
+    {},
+    null,
+    null,
+    event.detail ?? null,
+    event.posted_by ?? null,
+    event.visible_to_client ?? true
+  );
 }

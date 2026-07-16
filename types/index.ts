@@ -33,6 +33,7 @@ export interface Doc {
   // Client details
   name:           string;
   company:        string | null;
+  email:          string | null;
   service:        string | null;
   service_type:   string | null;
   service_area:   string | null;
@@ -53,8 +54,10 @@ export interface Doc {
   amount_paid:    number;
 
   // Magic link / portal
-  slug:                string | null;
-  magic_token_hash:    string | null;
+  slug:                    string | null;
+  magic_token_hash:        string | null;
+  magic_token_expires_at:  string | null;
+  payment_link:            string | null;
 
   // Access tracking
   first_view_ip:  string | null;
@@ -68,6 +71,23 @@ export interface Doc {
   // Signature
   signature:      string | null;
   signed_at:      string | null;
+
+  // Performance (Phase 10)
+  calls_total:      number | null;
+  calls_qualified:  number | null;
+  jobs_booked:      number | null;
+  ad_spend:         number | null;
+  avg_job_value:    number | null;
+  monthly_budget:   number | null;
+  monthly_call_cap: number | null;
+  rate_per_call:    number | null;
+
+  // Stripe
+  stripe_payment_link_id?:  string | null;
+  stripe_payment_link_url?: string | null;
+  stripe_session_id?:       string | null;
+  stripe_customer_email?:   string | null;
+  paid_at?:                 string | null;
 
   // Audit
   created_at:     string;
@@ -86,13 +106,16 @@ export type DocEventType =
   | "payment_updated";
 
 export interface DocEvent {
-  id:         string;
-  doc_id:     string;
-  event_type: DocEventType;
-  metadata:   Record<string, unknown>;
-  ip_address: string | null;
-  user_agent: string | null;
-  created_at: string;
+  id:                string;
+  doc_id:            string;
+  event_type:        string;
+  metadata:          Record<string, unknown>;
+  detail:            string | null;
+  posted_by:         string | null;
+  visible_to_client: boolean;
+  ip_address:        string | null;
+  user_agent:        string | null;
+  created_at:        string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,6 +127,7 @@ export interface CreateDocInput {
   type:           DocType;
   name:           string;
   company?:       string;
+  email?:         string;
   service?:       string;
   service_type?:  string;
   service_area?:  string;
@@ -120,10 +144,20 @@ export interface CreateDocInput {
 // INPUT: Update document (all fields optional except code)
 // ─────────────────────────────────────────────────────────────────────────────
 export type UpdateDocInput = Partial<Omit<CreateDocInput, "code">> & {
-  payment_status?:      PaymentStatus;
-  amount_paid?:         number;
-  slug?:                string;
-  magic_token_hash?:    string;
+  payment_status?:         PaymentStatus;
+  amount_paid?:            number;
+  payment_link?:           string | null;
+  calls_total?:            number;
+  calls_qualified?:        number;
+  jobs_booked?:            number;
+  ad_spend?:               number;
+  avg_job_value?:          number;
+  monthly_budget?:         number;
+  monthly_call_cap?:       number;
+  rate_per_call?:          number;
+  slug?:                   string;
+  magic_token_hash?:       string;
+  magic_token_expires_at?: string;
   first_view_ip?:       string;
   first_view_ua?:       string;
   signed_ip?:           string;
@@ -131,6 +165,12 @@ export type UpdateDocInput = Partial<Omit<CreateDocInput, "code">> & {
   accepted_esign_terms?: boolean;
   signature?:           string;
   signed_at?:           string;
+  // Stripe
+  stripe_payment_link_id?:  string | null;
+  stripe_payment_link_url?: string | null;
+  stripe_session_id?:       string | null;
+  stripe_customer_email?:   string | null;
+  paid_at?:                 string | null;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -156,6 +196,8 @@ export interface NotifyInput {
   invoiceTotal: string;
   signedAt:     string;
   code:         string;
+  ip?:          string | null;
+  ua?:          string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

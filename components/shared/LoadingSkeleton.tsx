@@ -64,3 +64,40 @@ export function CardSkeleton({ lines = 4 }: { lines?: number }) {
     </div>
   );
 }
+
+export function LoadingSkeleton({ type }: { type: "portal" | "admin" | "generic" }) {
+  const block = (height: number, width = "100%") => (
+    <div className="skeleton" style={{ height, width, marginBottom: 8, borderRadius: 6 }} />
+  );
+
+  if (type === "portal") return (
+    <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 20px", animation: "fadeIn 200ms ease" }}>
+      {block(20, "40%")}
+      {block(52, "60%")}
+      {block(16, "80%")}
+      <div style={{ height: 32 }} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="skeleton" style={{ height: 100, borderRadius: 10 }} />
+        ))}
+      </div>
+      <div className="skeleton" style={{ height: 200, borderRadius: 10 }} />
+    </div>
+  );
+
+  if (type === "admin") return (
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 24px 80px", animation: "fadeIn 200ms ease" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 24 }}>
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="skeleton" style={{ height: 100, borderRadius: 10 }} />
+        ))}
+      </div>
+      <div className="skeleton" style={{ height: 48, borderRadius: 8, marginBottom: 14 }} />
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="skeleton" style={{ height: 62, borderRadius: 0, marginBottom: 1 }} />
+      ))}
+    </div>
+  );
+
+  return <div className="skeleton" style={{ height: 200, borderRadius: 10, margin: 24 }} />;
+}

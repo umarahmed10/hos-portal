@@ -6,28 +6,26 @@
 
 /* ── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
-  /* Colors */
-  --bg:            #090909;
-  --surface:       #111111;
-  --surface-hover: #161616;
-  --border:        #1d1d1d;
-  --border-light:  #2a2a2a;
-  --text:          #f5f0eb;
-  --text-muted:    #555555;
-  --text-subtle:   #777777;
-  --green:         #22c55e;
-  --green-dim:     rgba(34, 197, 94, 0.10);
-  --green-border:  rgba(34, 197, 94, 0.25);
-  --amber:         #eab308;
-  --amber-dim:     rgba(234, 179, 8, 0.08);
-  --amber-border:  rgba(234, 179, 8, 0.20);
-  --red:           #ef4444;
+  /* Matte black + bone white + deep bronze */
+  --bg:     #111111;
+  --surf:   #1A1A1A;
+  --text:   #F3F1EC;
+  --muted:  #727272;
+  --border: #2A2A2A;
+  --border-light: #333333;
+  --subtle: #404040;
+  --gold:   #8B6B3E;
+  --green:  #4EAD87;
+  --amber:  #D4926A;
 
-  /* Typography */
-  --font-header: var(--font-bc), 'Barlow Condensed', sans-serif;
-  --font-body:   var(--font-b),  'Barlow', sans-serif;
-  --font-mono:   var(--font-jm), 'JetBrains Mono', monospace;
-  --font-serif:  Georgia, 'Times New Roman', serif;
+  /* Note: --font-display / --font-ui / --font-body / --font-mono are
+     supplied by next/font via the `variable` option in app/layout.tsx —
+     do not redefine them here, it would shadow the loaded font faces. */
+
+  /* Easing */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
@@ -48,12 +46,12 @@ body {
 
 /* ── Scrollbar ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #0d0d0d; }
-::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
 
 /* ── Form Elements ─────────────────────────────────────────────────────────── */
 ::placeholder {
-  color: #3a3a3a;
+  color: var(--subtle);
 }
 
 textarea {
@@ -72,23 +70,23 @@ textarea {
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.5);
+  filter: invert(0.4);
   cursor: pointer;
 }
 
 /* ── Focus Ring ────────────────────────────────────────────────────────────── */
 :focus-visible {
-  outline:        2px solid var(--green);
+  outline:        2px solid var(--gold);
   outline-offset: 2px;
-  border-radius:  4px;
+  border-radius:  5px;
 }
 
 /* ── Agreement / Invoice Document Text ────────────────────────────────────── */
 .doc-text {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size:   13px;
   line-height: 1.9;
-  color:       #b0b0b0;
+  color:       rgba(243, 241, 236, 0.65);
   white-space: pre-wrap;
 }
 
@@ -110,47 +108,211 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ── Animations ────────────────────────────────────────────────────────────── */
+/* ── Timing functions ──────────────────────────────────────── */
+:root {
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-snap:   cubic-bezier(0.12, 0, 0.39, 0);
+}
+
+/* ── Keyframes ─────────────────────────────────────────────── */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInFast {
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0);   }
 }
 
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0);     }
+}
+
 @keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0);     }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+
+@keyframes scalePop {
+  0%   { opacity: 0; transform: scale(0.6);  }
+  70%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1);    }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg);   }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%       { opacity: 0.5; transform: scale(0.96); }
+}
+
+@keyframes pulseGold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139,107,62,0); }
+  50%       { box-shadow: 0 0 0 6px rgba(139,107,62,0.15); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes progressFill {
+  from { width: 0%;                  }
+  to   { width: var(--target, 100%); }
+}
+
+@keyframes drawCheck {
+  from { stroke-dashoffset: 100; }
+  to   { stroke-dashoffset: 0;   }
+}
+
+@keyframes ringExpand {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes stampIn {
+  0%   { opacity: 0; transform: scale(1.12) translateY(-4px); }
+  60%  { opacity: 1; transform: scale(0.97) translateY(1px);  }
+  100% { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+
+@keyframes countUp {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0);    }
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0);    }
+  20%       { transform: translateX(-8px); }
+  40%       { transform: translateX(8px);  }
+  60%       { transform: translateX(-5px); }
+  80%       { transform: translateX(5px);  }
 }
+
+@keyframes borderGlow {
+  0%   { box-shadow: 0 0 0 0   rgba(139,107,62,0.4); }
+  100% { box-shadow: 0 0 0 8px rgba(139,107,62,0);   }
+}
+
+@keyframes checkStrike {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+
+/* ── Utility animation classes ─────────────────────────────── */
+.anim-fade-in     { animation: fadeIn      280ms var(--ease-out) both; }
+.anim-fade-up     { animation: fadeUp      320ms var(--ease-out) both; }
+.anim-scale-in    { animation: scaleIn     280ms var(--ease-out) both; }
+.anim-slide-right { animation: slideInRight 320ms var(--ease-out) both; }
+.anim-stamp       { animation: stampIn     400ms var(--ease-spring) both; }
 
 .animate-in {
-  animation: fadeIn 200ms ease-out both;
+  animation: fadeIn 320ms var(--ease-out) both;
 }
 
-/* ── Sonner Toast Overrides ────────────────────────────────────────────────── */
+.animate-up {
+  animation: slideUp 360ms var(--ease-out) both;
+}
+
+/* ── Staggered card entrance ───────────────────────────────── */
+.stagger > * { animation-fill-mode: both; }
+.stagger > *:nth-child(1)  { animation-delay: 0ms;   }
+.stagger > *:nth-child(2)  { animation-delay: 60ms;  }
+.stagger > *:nth-child(3)  { animation-delay: 120ms; }
+.stagger > *:nth-child(4)  { animation-delay: 180ms; }
+.stagger > *:nth-child(5)  { animation-delay: 240ms; }
+.stagger > *:nth-child(6)  { animation-delay: 300ms; }
+.stagger > *:nth-child(7)  { animation-delay: 360ms; }
+.stagger > *:nth-child(8)  { animation-delay: 420ms; }
+
+/* ── Shimmer skeleton ──────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #1A1A1A 25%,
+    #232323 50%,
+    #1A1A1A 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+  border-radius: 6px;
+}
+
+/* ── Input focus — bronze accent ───────────────────────────── */
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(139,107,62,0.55) !important;
+  box-shadow:   0 0 0 3px rgba(139,107,62,0.12) !important;
+  outline:      none !important;
+}
+
+/* ── Form error shake ──────────────────────────────────────── */
+.input-error {
+  animation: errorShake 400ms var(--ease-out) both;
+  border-color: rgba(201,106,106,0.5) !important;
+}
+
+/* ── Smooth scroll ─────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Selection color ───────────────────────────────────────── */
+::selection {
+  background: rgba(139,107,62,0.25);
+  color:      #F3F1EC;
+}
+
+/* ── Sonner Toast Overrides ────────────────────────────────── */
 [data-sonner-toaster] {
-  --normal-bg:     #111111 !important;
-  --normal-border: #2a2a2a !important;
-  --normal-text:   #f5f0eb !important;
+  --normal-bg:     #1A1A1A !important;
+  --normal-border: #2A2A2A !important;
+  --normal-text:   #F3F1EC !important;
 }
 
-/* ── Button Hover States ───────────────────────────────────────────────────── */
-button:not(:disabled):hover {
-  opacity: 0.75;
+/* ── Button Interactions ───────────────────────────────────── */
+button:not(:disabled):active {
+  transform: scale(0.97) !important;
+}
+
+button, a[role="button"] {
+  transition: opacity 160ms var(--ease-out), transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
 }
 
 /* ── Minimum tap target ────────────────────────────────────────────────────── */
 button, a, [role="button"] {
-  min-height: 36px;
+  min-height: 44px;
 }
 
 /* ── Copied Badge Pop Animation ────────────────────────────────────────────── */
 @keyframes copiedPop {
   0%   { opacity: 0; transform: scale(0.82); }
-  40%  { opacity: 1; transform: scale(1.08); }
-  70%  { opacity: 1; transform: scale(1);    }
+  40%  { opacity: 1; transform: scale(1.06); }
   100% { opacity: 1; transform: scale(1);    }
 }
 
@@ -158,21 +320,27 @@ button, a, [role="button"] {
   display:     inline-flex;
   align-items: center;
   gap:         6px;
-  animation:   copiedPop 280ms ease-out both;
+  animation:   copiedPop 260ms var(--spring) both;
 }
 
 /* ── Signature Pad ─────────────────────────────────────────────────────────── */
-/* Full-width on mobile with larger height for comfortable signing */
 @media (max-width: 600px) {
   .sig-canvas-wrapper {
-    margin: 0 -24px;
+    margin: 0 -20px;
   }
   .sig-canvas-wrapper canvas {
     border-radius: 0 !important;
     border-left:   none !important;
     border-right:  none !important;
-    /* +20px signing height on mobile via aspect-ratio enforcement */
-    aspect-ratio:  580 / 160 !important;
+    height:        180px !important;
+    aspect-ratio:  unset !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .sig-canvas-wrapper canvas {
+    height: 220px !important;
+    min-height: 220px !important;
   }
 }
 
@@ -183,27 +351,45 @@ nav::-webkit-scrollbar {
 
 /* ── Admin Dashboard — responsive grid ────────────────────────────────────── */
 @media (max-width: 700px) {
-  /* Metrics: 2-column on small screens */
   .admin-metrics-grid {
     grid-template-columns: repeat(2, 1fr) !important;
   }
-
-  /* Table: hide less important columns */
   .admin-table-code,
   .admin-table-amount {
     display: none;
   }
-
-  /* Stack nav buttons */
   .admin-nav-actions {
     gap: 6px;
   }
 }
 
+/* ── Admin header — compact on mobile ─────────────────────────────────────── */
+@media (max-width: 480px) {
+  .admin-header-title { font-size: 14px !important; letter-spacing: 0.5px !important; }
+  .admin-header-wordmark { display: none !important; }
+  .admin-new-client-label { display: none !important; }
+}
+
+/* ── Admin list rows — card layout on mobile ──────────────────────────────── */
+@media (max-width: 640px) {
+  .admin-list-row { flex-direction: column !important; gap: 8px !important; padding: 14px 16px !important; align-items: flex-start !important; }
+  .admin-list-row-meta { font-size: 11px !important; }
+  .admin-list-actions { flex-wrap: nowrap !important; }
+  .admin-list-action-label { display: none !important; }
+  .admin-list-code-text { display: none !important; }
+  .admin-list-name { font-size: 15px !important; }
+  .admin-list-company { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
 /* ── Landing page — mobile layout ─────────────────────────────────────────── */
 @media (max-width: 480px) {
   .landing-h1 {
-    font-size: 58px !important;
+    font-size: 42px !important;
+  }
+  .landing-tab-toggle button {
+    padding-left:  16px !important;
+    padding-right: 16px !important;
+    font-size:     12px !important;
   }
 }
 
@@ -221,6 +407,24 @@ nav::-webkit-scrollbar {
 }
 .portal-nav-scroll::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Credibility stats — condense to 2-column grid on mobile ──────────────── */
+@media (max-width: 480px) {
+  .credibility-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ── Admin form line items — stack on mobile to avoid horizontal scroll ───── */
+@media (max-width: 480px) {
+  .admin-line-item-row {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+  .admin-line-item-header {
+    display: none !important;
+  }
 }
 
 /* ── Step stepper — compact on very small screens ─────────────────────────── */
@@ -247,4 +451,36 @@ nav::-webkit-scrollbar {
     font-size: 12px !important;
     padding:   8px 0 !important;
   }
+}
+
+/* ── Safe area support (iPhone notch) ─────────────────────────────────────── */
+.safe-bottom {
+  padding-bottom: max(80px, calc(60px + env(safe-area-inset-bottom)));
+}
+
+/* ── Admin form client details — single column on mobile ──────────────────── */
+@media (max-width: 480px) {
+  .admin-client-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .admin-day-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* ── Admin performance grid — stack on mobile ─────────────────────────────── */
+@media (max-width: 640px) {
+  .perf-two-col   { grid-template-columns: 1fr !important; }
+  .perf-daily-row { grid-template-columns: 1fr 1fr !important; }
+  .perf-daily-row .date-col { grid-column: span 2; }
+}
+
+/* ── Premium card hover ────────────────────────────────────────────────────── */
+.card-hover {
+  transition: border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+.card-hover:hover {
+  border-color: rgba(139,107,62,0.2) !important;
+  box-shadow:   0 4px 24px rgba(0,0,0,0.3);
+  transform:    translateY(-1px);
 }
