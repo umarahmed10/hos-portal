@@ -303,15 +303,22 @@ CREATE INDEX IF NOT EXISTS idx_push_subs_code ON push_subscriptions(doc_code, ro
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 -- No anon policies — service_role only (all reads/writes via API routes).
 
--- Text chat log — persists across sessions, drives ChatPanel + unread counts
+-- Conversation log — persists across sessions, drives ChatPanel + call history.
+-- kind='text' rows are chat messages; kind='call' rows are call-lifecycle
+-- events (started / ended / missed) that interleave inline, Discord-style.
 CREATE TABLE IF NOT EXISTS comms_messages (
   id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
   doc_code     TEXT        NOT NULL,
   sender_role  TEXT        NOT NULL CHECK (sender_role IN ('admin', 'client')),
-  body         TEXT        NOT NULL,
+  body         TEXT        NOT NULL DEFAULT '',
+  kind         TEXT        NOT NULL DEFAULT 'text' CHECK (kind IN ('text', 'call')),
+  meta         JSONB,      -- call rows: { event, duration_sec, actor_name }
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   read_at      TIMESTAMPTZ
 );
+-- Idempotent add for existing databases (pre-call-history):
+ALTER TABLE comms_messages ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'text';
+ALTER TABLE comms_messages ADD COLUMN IF NOT EXISTS meta JSONB;
 CREATE INDEX IF NOT EXISTS idx_comms_messages_code_created
   ON comms_messages(doc_code, created_at DESC);
 

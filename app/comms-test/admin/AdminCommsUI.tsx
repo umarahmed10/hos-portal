@@ -103,7 +103,7 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
                   Active: <b style={{ color: TEXT }}>{active.name}</b> · <span style={{ fontFamily: "var(--font-mono)" }}>{active.code}</span>
                 </div>
                 <CallPanel code={active.code} me="admin" autoJoin={autoJoin} />
-                <ChatPanel code={active.code} me="admin" />
+                <ChatPanel code={active.code} me="admin" myName="HOS Team" peerName={active.name} />
               </>
             )}
           </div>

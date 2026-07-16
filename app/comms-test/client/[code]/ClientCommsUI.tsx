@@ -123,7 +123,7 @@ export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
           <CallPanel code={code} me="client" autoJoin={inCall} onLeave={() => setInCall(false)} />
-          <ChatPanel code={code} me="client" />
+          <ChatPanel code={code} me="client" myName={clientName} peerName="HOS Team" />
         </div>
 
         <div style={{ marginTop: 24, fontSize: 11, color: MUTED, textAlign: "center", opacity: 0.6 }}>

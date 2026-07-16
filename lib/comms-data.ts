@@ -17,14 +17,26 @@ export interface PushSub {
   keys:     { p256dh: string; auth: string };
 }
 
+export type CallEvent = "started" | "ended" | "missed";
+
+export interface CallMeta {
+  event:        CallEvent;
+  actor_name:   string;
+  duration_sec?: number;
+}
+
 export interface CommsMessage {
   id:          string;
   doc_code:    string;
   sender_role: CommsRole;
   body:        string;
+  kind:        "text" | "call";
+  meta:        CallMeta | null;
   created_at:  string;
   read_at:     string | null;
 }
+
+const MESSAGE_COLUMNS = "id, doc_code, sender_role, body, kind, meta, created_at, read_at";
 
 // ─── push subscriptions ─────────────────────────────────────────────────────
 
@@ -74,12 +86,29 @@ export async function getSubscriptionsFor(docCode: string, role: CommsRole): Pro
 // ─── messages ───────────────────────────────────────────────────────────────
 
 export async function listMessages(docCode: string, limit = 100): Promise<CommsMessage[]> {
-  const { data, error } = await db()
-    .from("comms_messages")
-    .select("id, doc_code, sender_role, body, created_at, read_at")
-    .eq("doc_code", docCode.toUpperCase())
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const code = docCode.toUpperCase();
+  const client = db();
+
+  const run = (columns: string) =>
+    client
+      .from("comms_messages")
+      .select(columns)
+      .eq("doc_code", code)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+  let { data, error } = await run(MESSAGE_COLUMNS);
+
+  // Graceful fallback if the call-history migration (kind/meta columns) hasn't
+  // been applied yet — chat keeps working; call events simply don't appear.
+  if (error && /column .*(kind|meta)/i.test(error.message)) {
+    ({ data, error } = await run("id, doc_code, sender_role, body, created_at, read_at"));
+    if (!error) {
+      const rows = (data ?? []) as unknown as Omit<CommsMessage, "kind" | "meta">[];
+      return rows.map(r => ({ ...r, kind: "text" as const, meta: null })).reverse();
+    }
+  }
+
   if (error) throw new Error(`[comms-data] listMessages: ${error.message}`);
   return ((data ?? []) as unknown as CommsMessage[]).reverse();
 }
@@ -89,15 +118,46 @@ export async function insertMessage(
   senderRole: CommsRole,
   body:       string
 ): Promise<CommsMessage> {
+  // `kind` is omitted so this insert also succeeds before the call-history
+  // migration (the DB default fills it in afterwards).
+  const client = db();
+  const row = { doc_code: docCode.toUpperCase(), sender_role: senderRole, body };
+
+  let { data, error } = await client.from("comms_messages").insert(row).select(MESSAGE_COLUMNS).single();
+
+  if (error && /column .*(kind|meta)/i.test(error.message)) {
+    ({ data, error } = await client
+      .from("comms_messages")
+      .insert(row)
+      .select("id, doc_code, sender_role, body, created_at, read_at")
+      .single());
+    if (!error && data) {
+      return { ...(data as unknown as Omit<CommsMessage, "kind" | "meta">), kind: "text", meta: null };
+    }
+  }
+
+  if (error) throw new Error(`[comms-data] insertMessage: ${error.message}`);
+  return data as unknown as CommsMessage;
+}
+
+// Append a call-lifecycle row (started / ended / missed) to the conversation
+// so it renders inline with chat. body stays empty; details live in meta.
+export async function insertCallEvent(
+  docCode:    string,
+  senderRole: CommsRole,
+  meta:       CallMeta
+): Promise<CommsMessage> {
   const { data, error } = await db()
     .from("comms_messages")
     .insert({
       doc_code:    docCode.toUpperCase(),
       sender_role: senderRole,
-      body,
+      body:        "",
+      kind:        "call",
+      meta,
     })
-    .select("id, doc_code, sender_role, body, created_at, read_at")
+    .select(MESSAGE_COLUMNS)
     .single();
-  if (error) throw new Error(`[comms-data] insertMessage: ${error.message}`);
+  if (error) throw new Error(`[comms-data] insertCallEvent: ${error.message}`);
   return data as unknown as CommsMessage;
 }

@@ -5,7 +5,7 @@ import { z }            from "zod";
 import webpush          from "web-push";
 import { authorizeAdmin } from "@/lib/comms-auth";
 import { getDocByCode, logDocEvent } from "@/lib/data-access";
-import { getSubscriptionsFor, deletePushSubscription } from "@/lib/comms-data";
+import { getSubscriptionsFor, deletePushSubscription, insertCallEvent } from "@/lib/comms-data";
 import {
   VAPID_PUBLIC_KEY,
   VAPID_PRIVATE_KEY,
@@ -65,11 +65,18 @@ export async function POST(req: Request) {
     }
   }));
 
+  // Admin audit trail (hidden from client).
   await logDocEvent(doc.id, {
     event_type: "call",
     detail:     `Admin rang · ${delivered}/${subs.length} device(s) reached`,
     posted_by:  "admin",
     visible_to_client: false,
+  }).catch(() => {});
+
+  // Conversation feed — renders inline as "HOS Team started a call".
+  await insertCallEvent(code, "admin", {
+    event:      "started",
+    actor_name: "HOS Team",
   }).catch(() => {});
 
   return NextResponse.json({ ok: true, data: { delivered, total: subs.length } });

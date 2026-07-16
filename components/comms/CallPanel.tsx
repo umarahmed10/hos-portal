@@ -30,6 +30,11 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
   const [elapsedMs, setElapsedMs]   = useState(0);
   const [remoteJoinedAt, setRemoteJoinedAt] = useState<number | null>(null);
   const startAtRef = useRef<number>(0);
+  // Call-history bookkeeping. talkStartRef holds the ms timestamp the remote
+  // first joined (basis for duration); retained until the next connect so a
+  // hang-up can still compute talk time. endEmittedRef guards single emission.
+  const talkStartRef  = useRef<number | null>(null);
+  const endEmittedRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (autoJoin) void connect();
@@ -46,6 +51,8 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
   async function connect() {
     setState("connecting");
     setError(null);
+    talkStartRef.current  = null;
+    endEmittedRef.current = false;
     try {
       const data = await postJSON<TokenData>("/api/comms/token", { code, asRole: me });
       if (data.peerName) setPeerName(data.peerName);
@@ -56,6 +63,7 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
       room.on(RoomEvent.ParticipantConnected, (p: RemoteParticipant) => {
         setRemote(p.identity);
         setRemoteJoinedAt(Date.now());
+        if (talkStartRef.current === null) talkStartRef.current = Date.now();
       });
       room.on(RoomEvent.ParticipantDisconnected, () => {
         setRemote(null);
@@ -80,6 +88,7 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
       room.on(RoomEvent.Reconnecting, () => setState("reconnecting"));
       room.on(RoomEvent.Reconnected,  () => setState("connected"));
       room.on(RoomEvent.Disconnected, () => {
+        emitEnded();
         detachAudio();
         setState("idle");
         setRemoteSpeaking(false);
@@ -93,6 +102,7 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
       if (existing) {
         setRemote(existing.identity);
         setRemoteJoinedAt(Date.now());
+        if (talkStartRef.current === null) talkStartRef.current = Date.now();
       }
 
       startAtRef.current = Date.now();
@@ -108,9 +118,22 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
     audioElsRef.current = [];
   }
 
+  // Record an "ended" call event once per call, with the real talk duration.
+  // Only fires when the remote actually joined — a ring the other side never
+  // answered leaves a lone "started" that the feed renders as a missed call.
+  // Best-effort: call history must never break the call UX, so errors swallow.
+  function emitEnded() {
+    if (endEmittedRef.current || talkStartRef.current === null) return;
+    endEmittedRef.current = true;
+    const durationSec = Math.max(0, Math.round((Date.now() - talkStartRef.current) / 1000));
+    void postJSON("/api/comms/call-event", { code, asRole: me, event: "ended", durationSec })
+      .catch(() => {});
+  }
+
   function disconnect() {
     const room = roomRef.current;
     if (!room) return;
+    emitEnded();
     room.remoteParticipants.forEach(p => {
       p.audioTrackPublications.forEach(pub => pub.track?.detach());
     });
