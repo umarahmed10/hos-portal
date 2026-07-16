@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
+import type { Room } from "livekit-client";
 import { CallPanel } from "@/components/comms/CallPanel";
 import { ChatPanel } from "@/components/comms/ChatPanel";
 import { postJSON } from "@/lib/comms/http";
@@ -12,6 +13,7 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
   const [active, setActive] = useState<Client | null>(null);
   const [autoJoin, setAutoJoin] = useState(false);
   const [ringing, setRinging] = useState<string | null>(null);
+  const [lkRoom, setLkRoom] = useState<Room | null>(null);
 
   async function ring(client: Client) {
     setRinging(client.code);
@@ -102,8 +104,8 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
                 <div style={{ fontSize: 12, color: MUTED }}>
                   Active: <b style={{ color: TEXT }}>{active.name}</b> · <span style={{ fontFamily: "var(--font-mono)" }}>{active.code}</span>
                 </div>
-                <CallPanel code={active.code} me="admin" autoJoin={autoJoin} />
-                <ChatPanel code={active.code} me="admin" myName="HOS Team" peerName={active.name} />
+                <CallPanel code={active.code} me="admin" autoJoin={autoJoin} onRoom={setLkRoom} />
+                <ChatPanel code={active.code} me="admin" myName="HOS Team" peerName={active.name} room={lkRoom} />
               </>
             )}
           </div>

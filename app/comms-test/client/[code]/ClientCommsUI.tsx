@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import type { Room } from "livekit-client";
 import { CallPanel }          from "@/components/comms/CallPanel";
 import { ChatPanel }          from "@/components/comms/ChatPanel";
 import { IncomingCallModal }  from "@/components/comms/IncomingCallModal";
@@ -21,6 +22,7 @@ export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
   const [pushState, setPushState] = useState<"idle" | "subscribed" | "denied" | "unsupported">("idle");
   const [incoming, setIncoming] = useState<{ caller: string; expiresAt: number } | null>(null);
   const [inCall, setInCall] = useState(false);
+  const [lkRoom, setLkRoom] = useState<Room | null>(null);
 
   // ── Establish portal session (uses code as credential for the test module) ──
   useEffect(() => {
@@ -122,8 +124,8 @@ export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
         <PushBanner state={pushState} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
-          <CallPanel code={code} me="client" autoJoin={inCall} onLeave={() => setInCall(false)} />
-          <ChatPanel code={code} me="client" myName={clientName} peerName="HOS Team" />
+          <CallPanel code={code} me="client" autoJoin={inCall} onLeave={() => setInCall(false)} onRoom={setLkRoom} />
+          <ChatPanel code={code} me="client" myName={clientName} peerName="HOS Team" room={lkRoom} />
         </div>
 
         <div style={{ marginTop: 24, fontSize: 11, color: MUTED, textAlign: "center", opacity: 0.6 }}>

@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { z }            from "zod";
 import { authorizeCommsCaller } from "@/lib/comms-auth";
-import { listMessages, insertMessage } from "@/lib/comms-data";
+import { listMessages, insertMessage, markRead } from "@/lib/comms-data";
 
 const Role = z.enum(["admin", "client"]);
 
@@ -19,6 +19,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
   const messages = await listMessages(code);
+  // Side-effect: mark the other side's messages as read since this user is viewing
+  void markRead(code, asRole.data).catch(() => {});
   return NextResponse.json({ ok: true, data: { messages } });
 }
 

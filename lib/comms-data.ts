@@ -140,6 +140,31 @@ export async function insertMessage(
   return data as unknown as CommsMessage;
 }
 
+export async function countUnread(docCode: string, forRole: CommsRole): Promise<number> {
+  const code = docCode.toUpperCase();
+  const otherRole = forRole === "admin" ? "client" : "admin";
+  const { count, error } = await db()
+    .from("comms_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("doc_code", code)
+    .eq("sender_role", otherRole)
+    .is("read_at", null);
+  if (error) return 0;
+  return count ?? 0;
+}
+
+// Mark messages as read
+export async function markRead(docCode: string, forRole: CommsRole): Promise<void> {
+  const code = docCode.toUpperCase();
+  const otherRole = forRole === "admin" ? "client" : "admin";
+  await db()
+    .from("comms_messages")
+    .update({ read_at: new Date().toISOString() })
+    .eq("doc_code", code)
+    .eq("sender_role", otherRole)
+    .is("read_at", null);
+}
+
 // Append a call-lifecycle row (started / ended / missed) to the conversation
 // so it renders inline with chat. body stays empty; details live in meta.
 export async function insertCallEvent(

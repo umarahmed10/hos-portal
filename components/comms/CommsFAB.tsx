@@ -1,10 +1,25 @@
 "use client";
 import Link from "next/link";
-import { BORDER, GOLD, BG } from "@/lib/styles";
+import { useEffect, useState } from "react";
+import { BORDER, GOLD, BG, RED } from "@/lib/styles";
 
-// Floating "Call HOS" button, positioned to the LEFT of the existing
-// FloatingSupport bubble so both can coexist on the client portal.
 export function CommsFAB({ code }: { code: string }) {
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/comms/unread?code=${code}&asRole=client`);
+        const j = await res.json();
+        if (!cancelled && j.ok) setUnread(j.data.count);
+      } catch { /* best-effort */ }
+    };
+    void poll();
+    const t = setInterval(poll, 30_000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [code]);
+
   return (
     <Link
       href={`/comms-test/client/${code}`}
@@ -22,6 +37,20 @@ export function CommsFAB({ code }: { code: string }) {
       }}
     >
       <span aria-hidden="true">📞</span>
+      {unread > 0 && (
+        <span style={{
+          position: "absolute", top: -4, right: -4,
+          minWidth: 18, height: 18, borderRadius: 9,
+          background: RED, color: "#fff",
+          fontSize: 10, fontWeight: 700,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "0 4px",
+          fontFamily: "var(--font-mono)",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+        }}>
+          {unread > 99 ? "99+" : unread}
+        </span>
+      )}
     </Link>
   );
 }

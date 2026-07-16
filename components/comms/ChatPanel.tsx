@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
+import { RoomEvent, type DataPacket_Kind, type Room, type RemoteParticipant } from "livekit-client";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 
 type CallEvent = "started" | "ended" | "missed";
@@ -18,14 +19,15 @@ interface Message {
 interface Props {
   code:      string;
   me:        "admin" | "client";
-  myName?:   string;   // display name for the current side
-  peerName?: string;   // display name for the other side
+  myName?:   string;
+  peerName?: string;
+  room?:     Room | null;
 }
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
-// A ring with no answer within this window reads as a missed call.
 const RING_WINDOW_MS = 35_000;
+const DATA_CHANNEL_TOPIC = "chat";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -45,27 +47,94 @@ function fmtDuration(sec = 0): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team" }: Props) {
+export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", room }: Props) {
+  const hasRoom = room?.state === "connected";
+  const pollInterval = hasRoom ? 10_000 : 2500;
+
   const { data, mutate } = useSWR<{ ok: boolean; data: { messages: Message[] } }>(
     `/api/comms/messages?code=${code}&asRole=${me}`,
     fetcher,
-    { refreshInterval: 2500 }
+    { refreshInterval: pollInterval }
   );
-  const messages = useMemo(() => (data?.ok ? data.data.messages : []), [data]);
+  const serverMessages = useMemo(() => (data?.ok ? data.data.messages : []), [data]);
+
+  // Optimistic messages: shown immediately, reconciled on next poll
+  const [optimistic, setOptimistic] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Data-channel incoming messages: merged with server messages
+  const [dcMessages, setDcMessages] = useState<Message[]>([]);
+
+  // Merge: server messages are authoritative; DC and optimistic fill the gap.
+  const messages = useMemo(() => {
+    const serverIds = new Set(serverMessages.map(m => m.id));
+    // DC messages not yet reflected in the server poll
+    const unsyncedDc = dcMessages.filter(m => !serverIds.has(m.id));
+    // Optimistic messages not yet reflected anywhere
+    const unsyncedOpt = optimistic.filter(
+      m => !serverIds.has(m.id) && !unsyncedDc.some(d => d.id === m.id)
+    );
+    return [...serverMessages, ...unsyncedDc, ...unsyncedOpt];
+  }, [serverMessages, dcMessages, optimistic]);
+
+  // Clean up optimistic + DC once server catches up
+  useEffect(() => {
+    if (serverMessages.length === 0) return;
+    const serverIds = new Set(serverMessages.map(m => m.id));
+    setOptimistic(prev => prev.filter(m => !serverIds.has(m.id)));
+    setDcMessages(prev => prev.filter(m => !serverIds.has(m.id)));
+  }, [serverMessages]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length]);
 
+  // ── LiveKit data channel: receive ──
+  useEffect(() => {
+    if (!room || room.state !== "connected") return;
+
+    const onData = (
+      payload: Uint8Array,
+      participant?: RemoteParticipant,
+      _kind?: DataPacket_Kind,
+      topic?: string,
+    ) => {
+      if (topic !== DATA_CHANNEL_TOPIC || !participant) return;
+      try {
+        const msg: Message = JSON.parse(new TextDecoder().decode(payload));
+        setDcMessages(prev => {
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      } catch { /* ignore non-JSON payloads */ }
+    };
+
+    room.on(RoomEvent.DataReceived, onData);
+    return () => { room.off(RoomEvent.DataReceived, onData); };
+  }, [room]);
+
   const nameFor = (role: "admin" | "client") => (role === me ? myName : peerName);
 
-  async function send() {
+  const send = useCallback(async () => {
     const body = text.trim();
     if (!body || sending) return;
     setSending(true);
+    setText("");
+
+    // Optimistic: show immediately
+    const optId = `opt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optMsg: Message = {
+      id: optId,
+      sender_role: me,
+      body,
+      kind: "text",
+      meta: null,
+      created_at: new Date().toISOString(),
+    };
+    setOptimistic(prev => [...prev, optMsg]);
+
     try {
       const res = await fetch("/api/comms/messages", {
         method: "POST",
@@ -73,9 +142,31 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team" }: P
         body: JSON.stringify({ code, body, asRole: me }),
       });
       const j = await res.json();
-      if (j.ok) { setText(""); await mutate(); }
-    } finally { setSending(false); }
-  }
+      if (j.ok) {
+        const saved: Message = j.data.message;
+        // Replace optimistic with real message
+        setOptimistic(prev => prev.filter(m => m.id !== optId));
+
+        // Broadcast via data channel if in-call
+        if (room?.state === "connected") {
+          const payload = new TextEncoder().encode(JSON.stringify(saved));
+          try {
+            void room.localParticipant.publishData(payload, {
+              topic: DATA_CHANNEL_TOPIC,
+              reliable: true,
+            });
+          } catch { /* data channel best-effort */ }
+        }
+
+        await mutate();
+      }
+    } catch {
+      // Revert optimistic on failure
+      setOptimistic(prev => prev.filter(m => m.id !== optId));
+    } finally {
+      setSending(false);
+    }
+  }, [text, sending, me, code, room, mutate]);
 
   return (
     <div style={{
@@ -85,7 +176,22 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team" }: P
       <div style={{
         padding: "12px 16px", borderBottom: `1px solid ${BORDER}`,
         fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.15em",
-      }}>Messages · {code}</div>
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+      }}>
+        <span>Messages · {code}</span>
+        {hasRoom && (
+          <span style={{
+            fontSize: 9, color: GREEN, fontWeight: 600,
+            display: "flex", alignItems: "center", gap: 4,
+          }}>
+            <span style={{
+              width: 5, height: 5, borderRadius: "50%", background: GREEN,
+              display: "inline-block",
+            }} />
+            LIVE
+          </span>
+        )}
+      </div>
 
       <div ref={listRef} style={{
         flex: 1, overflowY: "auto", padding: 16,
@@ -102,10 +208,13 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team" }: P
           }
           const mine = m.sender_role === me;
           const name = nameFor(m.sender_role);
+          const isOptimistic = m.id.startsWith("opt-");
           return (
             <div key={m.id} style={{
               display: "flex", flexDirection: mine ? "row-reverse" : "row",
               alignItems: "flex-end", gap: 8,
+              opacity: isOptimistic ? 0.6 : 1,
+              transition: "opacity 200ms",
             }}>
               <Avatar name={name} role={m.sender_role} />
               <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
@@ -164,9 +273,6 @@ function Avatar({ name, role }: { name: string; role: "admin" | "client" }) {
   );
 }
 
-// Renders a call-lifecycle row inline in the conversation, Discord-style.
-// `rest` = the messages after this one, used to decide whether a "started"
-// ring was ever answered (an "ended" before the next "started").
 function CallRow({ m, rest }: { m: Message; rest: Message[] }) {
   const meta = m.meta;
   if (!meta) return null;
@@ -179,7 +285,6 @@ function CallRow({ m, rest }: { m: Message; rest: Message[] }) {
     label = `Call ended · ${fmtDuration(meta.duration_sec)}`;
     icon  = "✓"; color = GREEN;
   } else {
-    // "started": look ahead for an answer (ended) before the next started.
     const nextStartedIdx = rest.findIndex(r => r.kind === "call" && r.meta?.event === "started");
     const window = nextStartedIdx === -1 ? rest : rest.slice(0, nextStartedIdx);
     const answered = window.some(r => r.kind === "call" && r.meta?.event === "ended");

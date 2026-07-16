@@ -11,11 +11,12 @@ interface Props {
   me:        "admin" | "client";
   autoJoin?: boolean;
   onLeave?:  () => void;
+  onRoom?:   (room: Room | null) => void;
 }
 
 type ConnState = "idle" | "connecting" | "connected" | "reconnecting" | "error";
 
-export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
+export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   const roomRef = useRef<Room | null>(null);
   // Audio elements we attach for remote tracks — tracked so every one is torn
   // down on unmount/disconnect (previously appended to document.body and leaked
@@ -107,6 +108,7 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
 
       startAtRef.current = Date.now();
       setState("connected");
+      onRoom?.(room);
     } catch (e) {
       setError((e as Error).message);
       setState("error");
@@ -140,6 +142,7 @@ export function CallPanel({ code, me, autoJoin, onLeave }: Props) {
     detachAudio();
     room.disconnect();
     roomRef.current = null;
+    onRoom?.(null);
     setRemote(null);
     setRemoteJoinedAt(null);
     setRemoteSpeaking(false);
