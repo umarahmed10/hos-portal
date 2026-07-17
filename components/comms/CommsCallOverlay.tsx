@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Room } from "livekit-client";
 import { CallPanel } from "@/components/comms/CallPanel";
 import { ChatPanel } from "@/components/comms/ChatPanel";
@@ -13,6 +13,14 @@ interface Props {
 
 export function CommsCallOverlay({ code, clientName, onClose }: Props) {
   const [lkRoom, setLkRoom] = useState<Room | null>(null);
+
+  // Notify CommsFAB about call state
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("comms-call-state", { detail: { active: true } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent("comms-call-state", { detail: { active: false } }));
+    };
+  }, []);
 
   return (
     <div style={{
