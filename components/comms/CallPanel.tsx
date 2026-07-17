@@ -228,119 +228,146 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   return (
     <div style={{
       background: SURF, border: `1px solid ${BORDER}`, borderRadius: 12,
-      padding: 20, color: TEXT,
+      color: TEXT, overflow: "hidden",
     }}>
-      {/* Header: status + participant avatars */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>
-            {hasVideo ? "Video" : "Voice"}
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 600 }}>
-            {state === "idle"         && "Not connected"}
-            {state === "connecting"   && "Connecting…"}
-            {state === "reconnecting" && <span style={{ color: GOLD }}>Reconnecting…</span>}
-            {state === "connected" && remote  && (
-              <>
-                {remoteSpeaking
-                  ? <><span style={{ color: GREEN }}>{peerName}</span> is speaking</>
-                  : <>Connected with <span style={{ color: GREEN }}>{peerName}</span></>}
-                {" · "}{mm}:{ss}
-              </>
-            )}
-            {state === "connected" && !remote && <>You&apos;re in. Waiting for {peerName}…</>}
-            {state === "error"        && "Connection failed"}
-          </div>
-          {error && <div style={{ fontSize: 12, color: RED, marginTop: 4 }}>{error}</div>}
+      {/* Status header */}
+      <div style={{ padding: "14px 20px", borderBottom: inCall ? `1px solid ${BORDER}` : "none" }}>
+        <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>
+          {hasVideo ? "Video" : "Voice"}
         </div>
-
-        {/* Participant avatars (audio-only mode) */}
-        {inCall && !hasVideo && (
-          <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, marginLeft: 12 }}>
-            <ParticipantDot
-              name={me === "admin" ? "HOS Team" : peerName}
-              speaking={false}
-              active
-              muted={muted}
-              isAdmin={me === "admin"}
-            />
-            {remote && (
-              <ParticipantDot
-                name={peerName}
-                speaking={remoteSpeaking}
-                active
-                isAdmin={me !== "admin"}
-              />
-            )}
-          </div>
-        )}
+        <div style={{ fontSize: 18, fontWeight: 600 }}>
+          {state === "idle"         && "Not connected"}
+          {state === "connecting"   && "Connecting…"}
+          {state === "reconnecting" && <span style={{ color: GOLD }}>Reconnecting…</span>}
+          {state === "connected" && remote  && (
+            <>
+              {remoteSpeaking
+                ? <><span style={{ color: GREEN }}>{peerName}</span> is speaking</>
+                : <>Connected with <span style={{ color: GREEN }}>{peerName}</span></>}
+            </>
+          )}
+          {state === "connected" && !remote && <>Waiting for {peerName}…</>}
+          {state === "error"        && "Connection failed"}
+        </div>
+        {error && <div style={{ fontSize: 12, color: RED, marginTop: 4 }}>{error}</div>}
       </div>
 
-      {/* Video tiles (when video is active) */}
-      {inCall && hasVideo && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: remoteVideoTrack && localVideoTrack ? "1fr 1fr" : "1fr",
-          gap: 8, marginBottom: 12,
-        }}>
-          {remoteVideoTrack && (
-            <VideoTile
-              track={remoteVideoTrack}
-              name={peerName}
-              isLocal={false}
-              speaking={remoteSpeaking}
-              muted={false}
-              isAdmin={me !== "admin"}
-            />
+      {/* Participant area */}
+      {inCall && (
+        <div style={{ padding: "16px 20px" }}>
+          {/* Timer */}
+          {state === "connected" && (
+            <div style={{
+              textAlign: "center", fontSize: 24, fontWeight: 600,
+              fontFamily: "var(--font-mono)", letterSpacing: "0.08em",
+              color: TEXT, marginBottom: 16, opacity: 0.7,
+            }}>{mm}:{ss}</div>
           )}
-          <VideoTile
-            track={localVideoTrack}
-            name={me === "admin" ? "HOS Team" : "You"}
-            isLocal
-            speaking={false}
-            muted={muted}
-            isAdmin={me === "admin"}
-          />
-        </div>
-      )}
 
-      {/* Event feed */}
-      {events.length > 0 && inCall && (
-        <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 3 }}>
-          {events.map(e => (
-            <div key={e.id} style={{
-              fontSize: 11, fontFamily: "var(--font-mono)",
-              color: e.type === "join" ? GREEN : e.type === "leave" ? RED : MUTED,
-              letterSpacing: "0.03em",
-              animation: "fadeSlide 300ms ease-out",
+          {/* Video tiles or audio participant grid */}
+          {hasVideo ? (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: remoteVideoTrack && localVideoTrack ? "1fr 1fr" : "1fr",
+              gap: 8, marginBottom: 12,
             }}>
-              {e.type === "join" ? "→" : e.type === "leave" ? "←" : "·"} {e.text}
+              {remoteVideoTrack && (
+                <VideoTile
+                  track={remoteVideoTrack}
+                  name={peerName}
+                  isLocal={false}
+                  speaking={remoteSpeaking}
+                  muted={false}
+                  isAdmin={me !== "admin"}
+                />
+              )}
+              <VideoTile
+                track={localVideoTrack}
+                name={me === "admin" ? "HOS Team" : "You"}
+                isLocal
+                speaking={false}
+                muted={muted}
+                isAdmin={me === "admin"}
+              />
             </div>
-          ))}
+          ) : (
+            <div style={{
+              display: "flex", justifyContent: "center", gap: 20,
+              marginBottom: 16,
+            }}>
+              <ParticipantTile
+                name={me === "admin" ? "HOS Team" : "You"}
+                speaking={false}
+                muted={muted}
+                isAdmin={me === "admin"}
+              />
+              {remote && (
+                <ParticipantTile
+                  name={peerName}
+                  speaking={remoteSpeaking}
+                  muted={false}
+                  isAdmin={me !== "admin"}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Event feed */}
+          {events.length > 0 && (
+            <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 3 }}>
+              {events.map(e => (
+                <div key={e.id} style={{
+                  fontSize: 11, fontFamily: "var(--font-mono)",
+                  color: e.type === "join" ? GREEN : e.type === "leave" ? RED : MUTED,
+                  letterSpacing: "0.03em",
+                  animation: "fadeSlide 300ms ease-out",
+                }}>
+                  {e.type === "join" ? "→" : e.type === "leave" ? "←" : "·"} {e.text}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Controls */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      {/* Bottom control bar */}
+      <div style={{
+        padding: "12px 20px",
+        borderTop: inCall ? `1px solid ${BORDER}` : "none",
+        display: "flex", gap: 8, alignItems: "center", justifyContent: "center",
+      }}>
         {!inCall && state !== "connecting" ? (
           <button onClick={connect} style={btnPrimary}>
             {state === "error" ? "Try again" : "Join call"}
           </button>
         ) : (
           <>
-            <button onClick={toggleMute} disabled={state === "reconnecting"} style={muted ? btnMuted : btnSecondary}>
-              {muted ? "Unmute" : "Mute"}
-            </button>
-            <button onClick={toggleCamera} disabled={state === "reconnecting"} style={cameraOn ? btnActive : btnSecondary}>
-              {cameraOn ? "Cam off" : "Cam on"}
-            </button>
-            <button onClick={disconnect} style={btnDanger}>Hang up</button>
+            <ControlButton
+              icon={muted ? <MicOffIcon /> : <MicIcon />}
+              label={muted ? "Unmute" : "Mute"}
+              active={!muted}
+              danger={muted}
+              onClick={toggleMute}
+              disabled={state === "reconnecting"}
+            />
+            <ControlButton
+              icon={<CameraIcon />}
+              label={cameraOn ? "Cam off" : "Cam on"}
+              active={cameraOn}
+              onClick={toggleCamera}
+              disabled={state === "reconnecting"}
+            />
             <VolumeControls room={roomRef.current} audioEls={audioElsRef.current} />
+            <ControlButton
+              icon={<PhoneOffIcon />}
+              label="End"
+              danger
+              onClick={disconnect}
+            />
           </>
         )}
       </div>
       <style>{`
-        @keyframes pulseDot { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
         @keyframes fadeSlide { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes speakPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(78,173,135,0.4); } 50% { box-shadow: 0 0 0 4px rgba(78,173,135,0.15); } }
       `}</style>
@@ -348,58 +375,124 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   );
 }
 
-function ParticipantDot({ name, speaking, active, muted, isAdmin }: {
-  name: string; speaking: boolean; active: boolean; muted?: boolean; isAdmin: boolean;
+function ParticipantTile({ name, speaking, muted, isAdmin }: {
+  name: string; speaking: boolean; muted?: boolean; isAdmin: boolean;
 }) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const ini = parts.length === 0 ? "?" : parts.length === 1 ? parts[0].slice(0, 2).toUpperCase()
     : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
       <div style={{
-        width: 32, height: 32, borderRadius: "50%",
+        width: 56, height: 56, borderRadius: "50%",
         display: "flex", alignItems: "center", justifyContent: "center",
-        border: speaking ? `2px solid ${GREEN}` : `2px solid transparent`,
+        border: speaking ? `3px solid ${GREEN}` : `3px solid transparent`,
         animation: speaking ? "speakPulse 1s ease-in-out infinite" : undefined,
         transition: "border-color 200ms",
         position: "relative",
       }}>
         {isAdmin ? (
-          <HOSTeamAvatar size={32} />
+          <HOSTeamAvatar size={48} />
         ) : (
           <div style={{
-            width: 32, height: 32, borderRadius: "50%",
-            background: active ? "#3A3A3A" : SURF_2,
-            color: TEXT,
+            width: 48, height: 48, borderRadius: "50%",
+            background: "#3A3A3A", color: TEXT,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 11, fontWeight: 700, fontFamily: "var(--font-ui)",
+            fontSize: 16, fontWeight: 700, fontFamily: "var(--font-ui)",
           }}>{ini}</div>
         )}
         {muted && (
           <div style={{
-            position: "absolute", bottom: -2, right: -2,
-            width: 12, height: 12, borderRadius: "50%",
+            position: "absolute", bottom: -1, right: -1,
+            width: 16, height: 16, borderRadius: "50%",
             background: RED, display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 7, color: "#fff", fontWeight: 700,
+            fontSize: 9, color: "#fff", fontWeight: 700,
           }}>✕</div>
         )}
       </div>
-      <div style={{ fontSize: 8, color: MUTED, letterSpacing: "0.05em", maxWidth: 40, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" }}>
+      <div style={{
+        fontSize: 11, color: MUTED, fontWeight: 500,
+        fontFamily: "var(--font-ui)", letterSpacing: "0.03em",
+        maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis",
+        whiteSpace: "nowrap", textAlign: "center",
+      }}>
         {name.split(" ")[0]}
       </div>
     </div>
   );
 }
 
-const btnBase: React.CSSProperties = {
+function ControlButton({ icon, label, active, danger, onClick, disabled }: {
+  icon: React.ReactNode; label: string; active?: boolean; danger?: boolean;
+  onClick: () => void; disabled?: boolean;
+}) {
+  let bg = BG;
+  let color = TEXT;
+  let border = `1px solid ${BORDER}`;
+  if (danger) { bg = RED; color = "#fff"; border = "none"; }
+  else if (active) { bg = "rgba(78,173,135,0.12)"; color = GREEN; border = `1px solid rgba(78,173,135,0.3)`; }
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      style={{
+        width: 40, height: 40, borderRadius: 10,
+        background: bg, color, border,
+        cursor: disabled ? "not-allowed" : "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        opacity: disabled ? 0.5 : 1,
+        transition: "all 150ms ease",
+      }}
+    >{icon}</button>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+      <path d="M19 10v2a7 7 0 01-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
+
+function MicOffIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="1" y1="1" x2="23" y2="23" />
+      <path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6" />
+      <path d="M17 16.95A7 7 0 015 12v-2m14 0v2c0 .87-.16 1.7-.45 2.47" />
+      <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="23 7 16 12 23 17 23 7" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  );
+}
+
+function PhoneOffIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.42 19.42 0 01-3.33-2.67m-2.67-3.34a19.79 19.79 0 01-3.07-8.63A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91" />
+      <line x1="23" y1="1" x2="1" y2="23" />
+    </svg>
+  );
+}
+
+const btnPrimary: React.CSSProperties = {
   padding: "10px 18px", borderRadius: 8, fontSize: 13,
   fontFamily: "var(--font-ui)", fontWeight: 600, letterSpacing: "0.05em",
-  textTransform: "uppercase", border: `1px solid ${BORDER}`,
-  cursor: "pointer",
+  textTransform: "uppercase", border: "none",
+  cursor: "pointer", background: TEXT, color: BG,
 };
-const btnPrimary: React.CSSProperties   = { ...btnBase, background: TEXT, color: BG,   border: "none" };
-const btnSecondary: React.CSSProperties = { ...btnBase, background: BG,   color: TEXT };
-const btnActive: React.CSSProperties    = { ...btnBase, background: "rgba(78,173,135,0.12)", color: GREEN, border: `1px solid rgba(78,173,135,0.3)` };
-const btnMuted: React.CSSProperties     = { ...btnBase, background: "rgba(201,106,106,0.12)", color: RED, border: `1px solid rgba(201,106,106,0.3)` };
-const btnDanger: React.CSSProperties    = { ...btnBase, background: RED,  color: "#fff", border: "none" };

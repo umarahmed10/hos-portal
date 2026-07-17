@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BORDER, GOLD, BG, TEXT, GOLD_BORDER } from "@/lib/styles";
+import { BORDER, GOLD, BG, TEXT, GOLD_BORDER, GREEN } from "@/lib/styles";
 
 export function CommsFAB({ code }: { code: string }) {
   const [unread, setUnread] = useState(0);
+  const [callActive, setCallActive] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -18,7 +19,14 @@ export function CommsFAB({ code }: { code: string }) {
     };
     void poll();
     const t = setInterval(poll, 30_000);
-    return () => { cancelled = true; clearInterval(t); };
+
+    // Listen for call overlay state changes
+    const onCallState = (e: Event) => {
+      setCallActive((e as CustomEvent).detail?.active ?? false);
+    };
+    window.addEventListener("comms-call-state", onCallState);
+
+    return () => { cancelled = true; clearInterval(t); window.removeEventListener("comms-call-state", onCallState); };
   }, [code]);
 
   return (
@@ -54,6 +62,16 @@ export function CommsFAB({ code }: { code: string }) {
           {unread > 99 ? "99+" : unread}
         </span>
       )}
+      {callActive && (
+        <span style={{
+          position: "absolute", bottom: -2, left: -2,
+          width: 12, height: 12, borderRadius: "50%",
+          background: GREEN,
+          boxShadow: `0 0 6px ${GREEN}`,
+          animation: "fabPulse 1.5s ease-in-out infinite",
+        }} />
+      )}
+      <style>{`@keyframes fabPulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }`}</style>
     </Link>
   );
 }
