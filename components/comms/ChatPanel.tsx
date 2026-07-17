@@ -16,6 +16,7 @@ interface Message {
   kind:        "text" | "call";
   meta:        CallMeta | null;
   created_at:  string;
+  read_at:     string | null;
 }
 
 interface Props {
@@ -30,6 +31,7 @@ const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 const RING_WINDOW_MS = 35_000;
 const DATA_CHANNEL_TOPIC = "chat";
+const READ_RECEIPT_TOPIC = "read-receipt";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -96,6 +98,21 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
     });
   }, [serverMessages]);
 
+  // Broadcast read-receipt via data channel when we see new peer messages
+  const sentReadRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!room || room.state !== "connected") return;
+    const peerMsgIds = serverMessages
+      .filter(m => m.sender_role !== me && m.kind === "text" && !sentReadRef.current.has(m.id))
+      .map(m => m.id);
+    if (peerMsgIds.length === 0) return;
+    peerMsgIds.forEach(id => sentReadRef.current.add(id));
+    try {
+      const payload = new TextEncoder().encode(JSON.stringify({ messageIds: peerMsgIds }));
+      void room.localParticipant.publishData(payload, { topic: READ_RECEIPT_TOPIC, reliable: true });
+    } catch { /* best-effort */ }
+  }, [serverMessages, room, me]);
+
   // Play receive sound for new incoming messages
   useEffect(() => {
     const count = messages.filter(m => m.kind === "text" && m.sender_role !== me && !m.id.startsWith("opt-")).length;
@@ -109,7 +126,10 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length]);
 
-  // LiveKit data channel: receive
+  // Track which read-receipt IDs we've already applied locally via data channel
+  const appliedReadRef = useRef<Set<string>>(new Set());
+
+  // LiveKit data channel: receive chat messages + read receipts
   useEffect(() => {
     if (!room || room.state !== "connected") return;
 
@@ -119,14 +139,29 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
       _kind?: DataPacket_Kind,
       topic?: string,
     ) => {
-      if (topic !== DATA_CHANNEL_TOPIC || !participant) return;
-      try {
-        const msg: Message = JSON.parse(new TextDecoder().decode(payload));
-        setDcMessages(prev => {
-          if (prev.some(m => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
-      } catch { /* ignore non-JSON payloads */ }
+      if (!participant) return;
+
+      if (topic === DATA_CHANNEL_TOPIC) {
+        try {
+          const msg: Message = JSON.parse(new TextDecoder().decode(payload));
+          setDcMessages(prev => {
+            if (prev.some(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+        } catch { /* ignore non-JSON payloads */ }
+        return;
+      }
+
+      if (topic === READ_RECEIPT_TOPIC) {
+        try {
+          const { messageIds } = JSON.parse(new TextDecoder().decode(payload)) as { messageIds: string[] };
+          const now = new Date().toISOString();
+          messageIds.forEach(id => appliedReadRef.current.add(id));
+          setDcMessages(prev => prev.map(m =>
+            messageIds.includes(m.id) && !m.read_at ? { ...m, read_at: now } : m
+          ));
+        } catch { /* ignore */ }
+      }
     };
 
     room.on(RoomEvent.DataReceived, onData);
@@ -149,6 +184,7 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
       kind: "text",
       meta: null,
       created_at: new Date().toISOString(),
+      read_at: null,
     };
     setOptimistic(prev => [...prev, optMsg]);
     playSend();
@@ -250,6 +286,9 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
                   padding: "8px 12px", borderRadius: 10,
                   fontSize: 14, lineHeight: 1.4, whiteSpace: "pre-wrap", wordBreak: "break-word",
                 }}>{m.body}</div>
+                {mine && (
+                  <ReadReceipt optimistic={isOptimistic} readAt={m.read_at} />
+                )}
               </div>
             </div>
           );
@@ -280,6 +319,23 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
         >Send</button>
       </div>
     </div>
+  );
+}
+
+const READ_BLUE = "#5BA0D0";
+
+function ReadReceipt({ optimistic, readAt }: { optimistic: boolean; readAt: string | null }) {
+  const isRead = !optimistic && !!readAt;
+  return (
+    <span style={{
+      fontSize: 10, marginTop: 2, marginRight: 2,
+      color: isRead ? READ_BLUE : MUTED,
+      opacity: isRead ? 1 : 0.5,
+      fontFamily: "var(--font-mono)",
+      letterSpacing: "-0.02em",
+    }}>
+      {isRead ? "✓✓" : "✓"}
+    </span>
   );
 }
 
