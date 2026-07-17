@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Room, RoomEvent, Track, LocalAudioTrack, RemoteParticipant, type Participant } from "livekit-client";
+import { Room, RoomEvent, Track, LocalAudioTrack, RemoteParticipant, type Participant, type RemoteTrackPublication } from "livekit-client";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 import { postJSON } from "@/lib/comms/http";
 import { playJoin, playLeave, playConnected, playDisconnected } from "@/lib/comms/sounds";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 import { VolumeControls } from "@/components/comms/VolumeControls";
+import { VideoTile } from "@/components/comms/VideoTile";
 
 interface TokenData { token: string; url: string; room: string; identity: string; peerName?: string }
 
@@ -19,19 +20,13 @@ interface Props {
 
 type ConnState = "idle" | "connecting" | "connected" | "reconnecting" | "error";
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
 export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   const roomRef = useRef<Room | null>(null);
   const audioElsRef = useRef<HTMLAudioElement[]>([]);
   const [state, setState]           = useState<ConnState>("idle");
   const [error, setError]           = useState<string | null>(null);
   const [muted, setMuted]           = useState(false);
+  const [cameraOn, setCameraOn]     = useState(false);
   const [remote, setRemote]         = useState<string | null>(null);
   const [remoteSpeaking, setRemoteSpeaking] = useState(false);
   const [peerName, setPeerName]     = useState<string>(me === "admin" ? "them" : "HOS Team");
@@ -40,8 +35,11 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   const startAtRef = useRef<number>(0);
   const talkStartRef  = useRef<number | null>(null);
   const endEmittedRef = useRef<boolean>(false);
-  // Visual event feed inside the call panel
   const [events, setEvents] = useState<{ id: string; text: string; type: "join" | "leave" | "info" }[]>([]);
+
+  // Video track state
+  const [localVideoTrack, setLocalVideoTrack] = useState<Track | null>(null);
+  const [remoteVideoTrack, setRemoteVideoTrack] = useState<Track | null>(null);
 
   useEffect(() => {
     if (autoJoin) void connect();
@@ -85,17 +83,26 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
         setRemote(null);
         setRemoteJoinedAt(null);
         setRemoteSpeaking(false);
+        setRemoteVideoTrack(null);
         const name = p.name || p.identity;
         addEvent(`${name} left`, "leave");
         playLeave();
       });
-      room.on(RoomEvent.TrackSubscribed, (track) => {
+      room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
         if (track.kind === Track.Kind.Audio) {
           const el = track.attach() as HTMLAudioElement;
           el.autoplay = true;
           el.style.display = "none";
           audioElsRef.current.push(el);
           document.body.appendChild(el);
+        }
+        if (track.kind === Track.Kind.Video) {
+          setRemoteVideoTrack(track);
+        }
+      });
+      room.on(RoomEvent.TrackUnsubscribed, (track) => {
+        if (track.kind === Track.Kind.Video) {
+          setRemoteVideoTrack(prev => prev === track ? null : prev);
         }
       });
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
@@ -114,6 +121,9 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
         detachAudio();
         setState("idle");
         setRemoteSpeaking(false);
+        setCameraOn(false);
+        setLocalVideoTrack(null);
+        setRemoteVideoTrack(null);
         playDisconnected();
         onLeave?.();
       });
@@ -128,6 +138,12 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
         if (talkStartRef.current === null) talkStartRef.current = Date.now();
         const name = existing.name || existing.identity;
         addEvent(`${name} is here`, "join");
+        // Check if existing participant has video
+        existing.videoTrackPublications.forEach((pub: RemoteTrackPublication) => {
+          if (pub.track && pub.track.kind === Track.Kind.Video) {
+            setRemoteVideoTrack(pub.track);
+          }
+        });
       }
 
       startAtRef.current = Date.now();
@@ -146,7 +162,6 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
     audioElsRef.current = [];
   }
 
-  // Only admin emits "ended" to prevent duplicate call-ended entries.
   function emitEnded() {
     if (me !== "admin") return;
     if (endEmittedRef.current || talkStartRef.current === null) return;
@@ -162,6 +177,7 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
     emitEnded();
     room.remoteParticipants.forEach(p => {
       p.audioTrackPublications.forEach(pub => pub.track?.detach());
+      p.videoTrackPublications.forEach(pub => pub.track?.detach());
     });
     detachAudio();
     room.disconnect();
@@ -170,6 +186,9 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
     setRemote(null);
     setRemoteJoinedAt(null);
     setRemoteSpeaking(false);
+    setCameraOn(false);
+    setLocalVideoTrack(null);
+    setRemoteVideoTrack(null);
   }
 
   async function toggleMute() {
@@ -182,6 +201,20 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
     else       { await track.mute();   setMuted(true);  }
   }
 
+  async function toggleCamera() {
+    const room = roomRef.current;
+    if (!room) return;
+    const next = !cameraOn;
+    await room.localParticipant.setCameraEnabled(next);
+    setCameraOn(next);
+    if (next) {
+      const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+      setLocalVideoTrack(pub?.track ?? null);
+    } else {
+      setLocalVideoTrack(null);
+    }
+  }
+
   const talkStart = remoteJoinedAt ?? startAtRef.current;
   const seconds   = state === "connected" && (elapsedMs || talkStart)
     ? Math.max(0, Math.floor((Date.now() - talkStart) / 1000))
@@ -190,6 +223,7 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   const ss = String(seconds % 60).padStart(2, "0");
 
   const inCall = state === "connected" || state === "reconnecting";
+  const hasVideo = localVideoTrack || remoteVideoTrack;
 
   return (
     <div style={{
@@ -199,7 +233,9 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
       {/* Header: status + participant avatars */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Voice</div>
+          <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>
+            {hasVideo ? "Video" : "Voice"}
+          </div>
           <div style={{ fontSize: 18, fontWeight: 600 }}>
             {state === "idle"         && "Not connected"}
             {state === "connecting"   && "Connecting…"}
@@ -218,8 +254,8 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
           {error && <div style={{ fontSize: 12, color: RED, marginTop: 4 }}>{error}</div>}
         </div>
 
-        {/* Participant avatars */}
-        {inCall && (
+        {/* Participant avatars (audio-only mode) */}
+        {inCall && !hasVideo && (
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, marginLeft: 12 }}>
             <ParticipantDot
               name={me === "admin" ? "HOS Team" : peerName}
@@ -240,6 +276,34 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
         )}
       </div>
 
+      {/* Video tiles (when video is active) */}
+      {inCall && hasVideo && (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: remoteVideoTrack && localVideoTrack ? "1fr 1fr" : "1fr",
+          gap: 8, marginBottom: 12,
+        }}>
+          {remoteVideoTrack && (
+            <VideoTile
+              track={remoteVideoTrack}
+              name={peerName}
+              isLocal={false}
+              speaking={remoteSpeaking}
+              muted={false}
+              isAdmin={me !== "admin"}
+            />
+          )}
+          <VideoTile
+            track={localVideoTrack}
+            name={me === "admin" ? "HOS Team" : "You"}
+            isLocal
+            speaking={false}
+            muted={muted}
+            isAdmin={me === "admin"}
+          />
+        </div>
+      )}
+
       {/* Event feed */}
       {events.length > 0 && inCall && (
         <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -256,7 +320,8 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      {/* Controls */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         {!inCall && state !== "connecting" ? (
           <button onClick={connect} style={btnPrimary}>
             {state === "error" ? "Try again" : "Join call"}
@@ -265,6 +330,9 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
           <>
             <button onClick={toggleMute} disabled={state === "reconnecting"} style={muted ? btnMuted : btnSecondary}>
               {muted ? "Unmute" : "Mute"}
+            </button>
+            <button onClick={toggleCamera} disabled={state === "reconnecting"} style={cameraOn ? btnActive : btnSecondary}>
+              {cameraOn ? "Cam off" : "Cam on"}
             </button>
             <button onClick={disconnect} style={btnDanger}>Hang up</button>
             <VolumeControls room={roomRef.current} audioEls={audioElsRef.current} />
@@ -324,13 +392,14 @@ function ParticipantDot({ name, speaking, active, muted, isAdmin }: {
   );
 }
 
-const btnBase = {
+const btnBase: React.CSSProperties = {
   padding: "10px 18px", borderRadius: 8, fontSize: 13,
   fontFamily: "var(--font-ui)", fontWeight: 600, letterSpacing: "0.05em",
-  textTransform: "uppercase" as const, border: `1px solid ${BORDER}`,
+  textTransform: "uppercase", border: `1px solid ${BORDER}`,
   cursor: "pointer",
 };
-const btnPrimary   = { ...btnBase, background: TEXT, color: BG,   border: "none" };
-const btnSecondary = { ...btnBase, background: BG,   color: TEXT };
-const btnMuted     = { ...btnBase, background: "rgba(201,106,106,0.12)", color: RED, border: `1px solid rgba(201,106,106,0.3)` };
-const btnDanger    = { ...btnBase, background: RED,  color: "#fff", border: "none" };
+const btnPrimary: React.CSSProperties   = { ...btnBase, background: TEXT, color: BG,   border: "none" };
+const btnSecondary: React.CSSProperties = { ...btnBase, background: BG,   color: TEXT };
+const btnActive: React.CSSProperties    = { ...btnBase, background: "rgba(78,173,135,0.12)", color: GREEN, border: `1px solid rgba(78,173,135,0.3)` };
+const btnMuted: React.CSSProperties     = { ...btnBase, background: "rgba(201,106,106,0.12)", color: RED, border: `1px solid rgba(201,106,106,0.3)` };
+const btnDanger: React.CSSProperties    = { ...btnBase, background: RED,  color: "#fff", border: "none" };
