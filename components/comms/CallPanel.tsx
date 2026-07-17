@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track, LocalAudioTrack, RemoteParticipant, type Participant } from "livekit-client";
-import { BG, SURF, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
+import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 import { postJSON } from "@/lib/comms/http";
+import { playJoin, playLeave, playConnected, playDisconnected } from "@/lib/comms/sounds";
 
 interface TokenData { token: string; url: string; room: string; identity: string; peerName?: string }
 
@@ -16,11 +17,15 @@ interface Props {
 
 type ConnState = "idle" | "connecting" | "connected" | "reconnecting" | "error";
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   const roomRef = useRef<Room | null>(null);
-  // Audio elements we attach for remote tracks — tracked so every one is torn
-  // down on unmount/disconnect (previously appended to document.body and leaked
-  // when the panel unmounted mid-call or hit an error path).
   const audioElsRef = useRef<HTMLAudioElement[]>([]);
   const [state, setState]           = useState<ConnState>("idle");
   const [error, setError]           = useState<string | null>(null);
@@ -31,11 +36,10 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   const [elapsedMs, setElapsedMs]   = useState(0);
   const [remoteJoinedAt, setRemoteJoinedAt] = useState<number | null>(null);
   const startAtRef = useRef<number>(0);
-  // Call-history bookkeeping. talkStartRef holds the ms timestamp the remote
-  // first joined (basis for duration); retained until the next connect so a
-  // hang-up can still compute talk time. endEmittedRef guards single emission.
   const talkStartRef  = useRef<number | null>(null);
   const endEmittedRef = useRef<boolean>(false);
+  // Visual event feed inside the call panel
+  const [events, setEvents] = useState<{ id: string; text: string; type: "join" | "leave" | "info" }[]>([]);
 
   useEffect(() => {
     if (autoJoin) void connect();
@@ -49,9 +53,15 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
     return () => clearInterval(t);
   }, [state]);
 
+  function addEvent(text: string, type: "join" | "leave" | "info") {
+    const id = `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setEvents(prev => [...prev.slice(-4), { id, text, type }]);
+  }
+
   async function connect() {
     setState("connecting");
     setError(null);
+    setEvents([]);
     talkStartRef.current  = null;
     endEmittedRef.current = false;
     try {
@@ -65,11 +75,17 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
         setRemote(p.identity);
         setRemoteJoinedAt(Date.now());
         if (talkStartRef.current === null) talkStartRef.current = Date.now();
+        const name = p.name || p.identity;
+        addEvent(`${name} joined`, "join");
+        playJoin();
       });
-      room.on(RoomEvent.ParticipantDisconnected, () => {
+      room.on(RoomEvent.ParticipantDisconnected, (p: RemoteParticipant) => {
         setRemote(null);
         setRemoteJoinedAt(null);
         setRemoteSpeaking(false);
+        const name = p.name || p.identity;
+        addEvent(`${name} left`, "leave");
+        playLeave();
       });
       room.on(RoomEvent.TrackSubscribed, (track) => {
         if (track.kind === Track.Kind.Audio) {
@@ -80,19 +96,23 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
           document.body.appendChild(el);
         }
       });
-      // Speaking indicator — the single strongest "who's talking" signal.
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
         setRemoteSpeaking(speakers.some(s => s !== room.localParticipant));
       });
-      // Reconnect lifecycle — a dropped connection now reads differently from a
-      // deliberate hang-up instead of silently flipping to idle.
-      room.on(RoomEvent.Reconnecting, () => setState("reconnecting"));
-      room.on(RoomEvent.Reconnected,  () => setState("connected"));
+      room.on(RoomEvent.Reconnecting, () => {
+        setState("reconnecting");
+        addEvent("Reconnecting…", "info");
+      });
+      room.on(RoomEvent.Reconnected, () => {
+        setState("connected");
+        addEvent("Reconnected", "info");
+      });
       room.on(RoomEvent.Disconnected, () => {
         emitEnded();
         detachAudio();
         setState("idle");
         setRemoteSpeaking(false);
+        playDisconnected();
         onLeave?.();
       });
 
@@ -104,10 +124,14 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
         setRemote(existing.identity);
         setRemoteJoinedAt(Date.now());
         if (talkStartRef.current === null) talkStartRef.current = Date.now();
+        const name = existing.name || existing.identity;
+        addEvent(`${name} is here`, "join");
       }
 
       startAtRef.current = Date.now();
       setState("connected");
+      addEvent("You connected", "join");
+      playConnected();
       onRoom?.(room);
     } catch (e) {
       setError((e as Error).message);
@@ -120,11 +144,9 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
     audioElsRef.current = [];
   }
 
-  // Record an "ended" call event once per call, with the real talk duration.
-  // Only fires when the remote actually joined — a ring the other side never
-  // answered leaves a lone "started" that the feed renders as a missed call.
-  // Best-effort: call history must never break the call UX, so errors swallow.
+  // Only admin emits "ended" to prevent duplicate call-ended entries.
   function emitEnded() {
+    if (me !== "admin") return;
     if (endEmittedRef.current || talkStartRef.current === null) return;
     endEmittedRef.current = true;
     const durationSec = Math.max(0, Math.round((Date.now() - talkStartRef.current) / 1000));
@@ -158,9 +180,6 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
     else       { await track.mute();   setMuted(true);  }
   }
 
-  // Talk-time = elapsed since remote actually joined (not since we hit connect).
-  // elapsedMs is only read here as a tick-driver; the 1s interval re-renders
-  // this component and Date.now() recomputes the display.
   const talkStart = remoteJoinedAt ?? startAtRef.current;
   const seconds   = state === "connected" && (elapsedMs || talkStart)
     ? Math.max(0, Math.floor((Date.now() - talkStart) / 1000))
@@ -170,28 +189,15 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
 
   const inCall = state === "connected" || state === "reconnecting";
 
-  const dotColor =
-    state === "reconnecting"        ? GOLD  :
-    state === "connected" && remote ? GREEN :
-    state === "connected"           ? GOLD  :
-    state === "connecting"          ? GOLD  :
-    state === "error"               ? RED   :
-    BORDER;
-
-  // Dot pulses while the peer is speaking, or while waiting/reconnecting.
-  const dotPulse =
-    (state === "connected" && remoteSpeaking) ||
-    (state === "connected" && !remote) ||
-    state === "reconnecting";
-
   return (
     <div style={{
       background: SURF, border: `1px solid ${BORDER}`, borderRadius: 12,
       padding: 20, color: TEXT,
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.15em" }}>Voice</div>
+      {/* Header: status + participant avatars */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Voice</div>
           <div style={{ fontSize: 18, fontWeight: 600 }}>
             {state === "idle"         && "Not connected"}
             {state === "connecting"   && "Connecting…"}
@@ -209,12 +215,44 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
           </div>
           {error && <div style={{ fontSize: 12, color: RED, marginTop: 4 }}>{error}</div>}
         </div>
-        <div style={{
-          width: 10, height: 10, borderRadius: 5, flexShrink: 0,
-          background: dotColor,
-          animation: dotPulse ? "pulseDot 1.2s ease-in-out infinite" : undefined,
-        }} />
+
+        {/* Participant avatars */}
+        {inCall && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, marginLeft: 12 }}>
+            <ParticipantDot
+              name={me === "admin" ? "HOS Team" : peerName}
+              speaking={false}
+              active
+              muted={muted}
+              isAdmin={me === "admin"}
+            />
+            {remote && (
+              <ParticipantDot
+                name={peerName}
+                speaking={remoteSpeaking}
+                active
+                isAdmin={me !== "admin"}
+              />
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Event feed */}
+      {events.length > 0 && inCall && (
+        <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 3 }}>
+          {events.map(e => (
+            <div key={e.id} style={{
+              fontSize: 11, fontFamily: "var(--font-mono)",
+              color: e.type === "join" ? GREEN : e.type === "leave" ? RED : MUTED,
+              letterSpacing: "0.03em",
+              animation: "fadeSlide 300ms ease-out",
+            }}>
+              {e.type === "join" ? "→" : e.type === "leave" ? "←" : "·"} {e.text}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 10 }}>
         {!inCall && state !== "connecting" ? (
@@ -223,14 +261,56 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
           </button>
         ) : (
           <>
-            <button onClick={toggleMute} disabled={state === "reconnecting"} style={btnSecondary}>
+            <button onClick={toggleMute} disabled={state === "reconnecting"} style={muted ? btnMuted : btnSecondary}>
               {muted ? "Unmute" : "Mute"}
             </button>
             <button onClick={disconnect} style={btnDanger}>Hang up</button>
           </>
         )}
       </div>
-      <style>{`@keyframes pulseDot { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }`}</style>
+      <style>{`
+        @keyframes pulseDot { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
+        @keyframes fadeSlide { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes speakPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(78,173,135,0.4); } 50% { box-shadow: 0 0 0 4px rgba(78,173,135,0.15); } }
+      `}</style>
+    </div>
+  );
+}
+
+function ParticipantDot({ name, speaking, active, muted, isAdmin }: {
+  name: string; speaking: boolean; active: boolean; muted?: boolean; isAdmin: boolean;
+}) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const ini = parts.length === 0 ? "?" : parts.length === 1 ? parts[0].slice(0, 2).toUpperCase()
+    : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  const bg = isAdmin ? "rgba(139,107,62,0.9)" : "#3A3A3A";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: "50%",
+        background: active ? bg : SURF_2,
+        color: isAdmin ? "#111" : TEXT,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 11, fontWeight: 700, fontFamily: "var(--font-ui)",
+        border: speaking ? `2px solid ${GREEN}` : `2px solid transparent`,
+        animation: speaking ? "speakPulse 1s ease-in-out infinite" : undefined,
+        transition: "border-color 200ms",
+        position: "relative",
+      }}>
+        {ini}
+        {muted && (
+          <div style={{
+            position: "absolute", bottom: -2, right: -2,
+            width: 12, height: 12, borderRadius: "50%",
+            background: RED, display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 7, color: "#fff", fontWeight: 700,
+          }}>✕</div>
+        )}
+      </div>
+      <div style={{ fontSize: 8, color: MUTED, letterSpacing: "0.05em", maxWidth: 40, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" }}>
+        {name.split(" ")[0]}
+      </div>
     </div>
   );
 }
@@ -243,4 +323,5 @@ const btnBase = {
 };
 const btnPrimary   = { ...btnBase, background: TEXT, color: BG,   border: "none" };
 const btnSecondary = { ...btnBase, background: BG,   color: TEXT };
+const btnMuted     = { ...btnBase, background: "rgba(201,106,106,0.12)", color: RED, border: `1px solid rgba(201,106,106,0.3)` };
 const btnDanger    = { ...btnBase, background: RED,  color: "#fff", border: "none" };

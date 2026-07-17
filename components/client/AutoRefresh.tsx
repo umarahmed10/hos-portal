@@ -1,7 +1,5 @@
 "use client";
-// Silently re-fetches the current page's server data on an interval.
-// Drop into any server component page to keep data fresh without a full reload.
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 interface Props {
@@ -10,9 +8,15 @@ interface Props {
 
 export function AutoRefresh({ intervalMs = 30000 }: Props) {
   const router = useRouter();
+  const visibleRef = useRef(true);
+
   useEffect(() => {
-    const id = setInterval(() => router.refresh(), intervalMs);
-    return () => clearInterval(id);
+    const onVis = () => { visibleRef.current = document.visibilityState === "visible"; };
+    document.addEventListener("visibilitychange", onVis);
+    const id = setInterval(() => {
+      if (visibleRef.current) router.refresh();
+    }, intervalMs);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
   }, [router, intervalMs]);
   return null;
 }

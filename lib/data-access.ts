@@ -17,22 +17,32 @@ import type {
 // CLIENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _adminClient: SupabaseClient<any, "public", any> | null = null;
 function getAdminClient() {
+  if (_adminClient) return _adminClient;
   const url    = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   if (!url || !svcKey) {
     throw new Error("[data-access] NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set");
   }
-  return createClient(url, svcKey, { auth: { persistSession: false } });
+  _adminClient = createClient(url, svcKey, { auth: { persistSession: false } });
+  return _adminClient;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _anonClient: SupabaseClient<any, "public", any> | null = null;
 function getAnonClient() {
+  if (_anonClient) return _anonClient;
   const url     = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   if (!url || !anonKey) {
     throw new Error("[data-access] NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY is not set");
   }
-  return createClient(url, anonKey, { auth: { persistSession: false } });
+  _anonClient = createClient(url, anonKey, { auth: { persistSession: false } });
+  return _anonClient;
 }
 
 // Explicit column list — no select('*') anywhere. Keep in sync with types/index.ts Doc.

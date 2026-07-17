@@ -1,13 +1,17 @@
 // Data-access helpers for the /comms-test module.
 // Kept separate from lib/data-access.ts (docs domain) so the comms trial
 // can be lifted or dropped as one unit.
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _db: SupabaseClient<any, "public", any> | null = null;
 function db() {
+  if (_db) return _db;
   const url    = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   if (!url || !svcKey) throw new Error("[comms-data] Supabase env not set");
-  return createClient(url, svcKey, { auth: { persistSession: false } });
+  _db = createClient(url, svcKey, { auth: { persistSession: false } });
+  return _db;
 }
 
 export type CommsRole = "admin" | "client";

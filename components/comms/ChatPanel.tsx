@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { RoomEvent, type DataPacket_Kind, type Room, type RemoteParticipant } from "livekit-client";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
+import { playSend, playReceive } from "@/lib/comms/sounds";
 
 type CallEvent = "started" | "ended" | "missed";
 interface CallMeta { event: CallEvent; actor_name: string; duration_sec?: number }
@@ -58,40 +59,56 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
   );
   const serverMessages = useMemo(() => (data?.ok ? data.data.messages : []), [data]);
 
-  // Optimistic messages: shown immediately, reconciled on next poll
+  // Optimistic messages shown immediately; cleaned up when server confirms.
+  // Key fix: we never manually remove optimistic messages — the cleanup effect
+  // handles it when the server poll returns data containing the real message.
+  // This prevents the send→unsend→resend flicker.
   const [optimistic, setOptimistic] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const prevMsgCountRef = useRef(0);
 
-  // Data-channel incoming messages: merged with server messages
+  // Data-channel incoming messages
   const [dcMessages, setDcMessages] = useState<Message[]>([]);
 
-  // Merge: server messages are authoritative; DC and optimistic fill the gap.
+  // Merge: server authoritative; DC and optimistic fill the gap
   const messages = useMemo(() => {
     const serverIds = new Set(serverMessages.map(m => m.id));
-    // DC messages not yet reflected in the server poll
     const unsyncedDc = dcMessages.filter(m => !serverIds.has(m.id));
-    // Optimistic messages not yet reflected anywhere
-    const unsyncedOpt = optimistic.filter(
-      m => !serverIds.has(m.id) && !unsyncedDc.some(d => d.id === m.id)
-    );
+    const allKnownIds = new Set([...serverIds, ...unsyncedDc.map(m => m.id)]);
+    const unsyncedOpt = optimistic.filter(m => !allKnownIds.has(m.id));
     return [...serverMessages, ...unsyncedDc, ...unsyncedOpt];
   }, [serverMessages, dcMessages, optimistic]);
 
-  // Clean up optimistic + DC once server catches up
+  // Clean up once server catches up
   useEffect(() => {
     if (serverMessages.length === 0) return;
     const serverIds = new Set(serverMessages.map(m => m.id));
-    setOptimistic(prev => prev.filter(m => !serverIds.has(m.id)));
-    setDcMessages(prev => prev.filter(m => !serverIds.has(m.id)));
+    setOptimistic(prev => {
+      const next = prev.filter(m => !serverIds.has(m.id));
+      return next.length === prev.length ? prev : next;
+    });
+    setDcMessages(prev => {
+      const next = prev.filter(m => !serverIds.has(m.id));
+      return next.length === prev.length ? prev : next;
+    });
   }, [serverMessages]);
+
+  // Play receive sound for new incoming messages
+  useEffect(() => {
+    const count = messages.filter(m => m.kind === "text" && m.sender_role !== me && !m.id.startsWith("opt-")).length;
+    if (count > prevMsgCountRef.current && prevMsgCountRef.current > 0) {
+      playReceive();
+    }
+    prevMsgCountRef.current = count;
+  }, [messages, me]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length]);
 
-  // ── LiveKit data channel: receive ──
+  // LiveKit data channel: receive
   useEffect(() => {
     if (!room || room.state !== "connected") return;
 
@@ -123,7 +140,6 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
     setSending(true);
     setText("");
 
-    // Optimistic: show immediately
     const optId = `opt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const optMsg: Message = {
       id: optId,
@@ -134,6 +150,7 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
       created_at: new Date().toISOString(),
     };
     setOptimistic(prev => [...prev, optMsg]);
+    playSend();
 
     try {
       const res = await fetch("/api/comms/messages", {
@@ -144,13 +161,14 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
       const j = await res.json();
       if (j.ok) {
         const saved: Message = j.data.message;
-        // Replace optimistic with real message
-        setOptimistic(prev => prev.filter(m => m.id !== optId));
+
+        // Swap the optimistic ID for the real one so dedup works
+        setOptimistic(prev => prev.map(m => m.id === optId ? { ...m, id: saved.id } : m));
 
         // Broadcast via data channel if in-call
         if (room?.state === "connected") {
-          const payload = new TextEncoder().encode(JSON.stringify(saved));
           try {
+            const payload = new TextEncoder().encode(JSON.stringify(saved));
             void room.localParticipant.publishData(payload, {
               topic: DATA_CHANNEL_TOPIC,
               reliable: true,
@@ -158,10 +176,13 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
           } catch { /* data channel best-effort */ }
         }
 
-        await mutate();
+        // Revalidate SWR — the cleanup effect will remove the optimistic copy
+        // once the server data includes the real message
+        void mutate();
+      } else {
+        setOptimistic(prev => prev.filter(m => m.id !== optId));
       }
     } catch {
-      // Revert optimistic on failure
       setOptimistic(prev => prev.filter(m => m.id !== optId));
     } finally {
       setSending(false);
@@ -213,8 +234,8 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
             <div key={m.id} style={{
               display: "flex", flexDirection: mine ? "row-reverse" : "row",
               alignItems: "flex-end", gap: 8,
-              opacity: isOptimistic ? 0.6 : 1,
-              transition: "opacity 200ms",
+              opacity: isOptimistic ? 0.55 : 1,
+              transition: "opacity 300ms ease",
             }}>
               <Avatar name={name} role={m.sender_role} />
               <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
