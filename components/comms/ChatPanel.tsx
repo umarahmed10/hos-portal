@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { RoomEvent, type DataPacket_Kind, type Room, type RemoteParticipant } from "livekit-client";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 import { playSend, playReceive } from "@/lib/comms/sounds";
+import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 
 type CallEvent = "started" | "ended" | "missed";
 interface CallMeta { event: CallEvent; actor_name: string; duration_sec?: number }
@@ -260,6 +261,7 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
+          enterKeyHint="send"
           placeholder="Type a message…"
           style={{
             flex: 1, background: SURF_2, border: `1px solid ${BORDER}`,
@@ -282,11 +284,11 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
 }
 
 function Avatar({ name, role }: { name: string; role: "admin" | "client" }) {
-  const bg = role === "admin" ? "rgba(139,107,62,0.9)" : "#3A3A3A";
+  if (role === "admin") return <HOSTeamAvatar size={28} />;
   return (
     <div style={{
       width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-      background: bg, color: role === "admin" ? "#111" : TEXT,
+      background: "#3A3A3A", color: TEXT,
       display: "flex", alignItems: "center", justifyContent: "center",
       fontSize: 10, fontWeight: 700, letterSpacing: "0.02em",
       fontFamily: "var(--font-ui)",

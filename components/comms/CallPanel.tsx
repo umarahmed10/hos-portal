@@ -4,6 +4,7 @@ import { Room, RoomEvent, Track, LocalAudioTrack, RemoteParticipant, type Partic
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 import { postJSON } from "@/lib/comms/http";
 import { playJoin, playLeave, playConnected, playDisconnected } from "@/lib/comms/sounds";
+import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 
 interface TokenData { token: string; url: string; room: string; identity: string; peerName?: string }
 
@@ -283,22 +284,28 @@ function ParticipantDot({ name, speaking, active, muted, isAdmin }: {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const ini = parts.length === 0 ? "?" : parts.length === 1 ? parts[0].slice(0, 2).toUpperCase()
     : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  const bg = isAdmin ? "rgba(139,107,62,0.9)" : "#3A3A3A";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
       <div style={{
         width: 32, height: 32, borderRadius: "50%",
-        background: active ? bg : SURF_2,
-        color: isAdmin ? "#111" : TEXT,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 11, fontWeight: 700, fontFamily: "var(--font-ui)",
         border: speaking ? `2px solid ${GREEN}` : `2px solid transparent`,
         animation: speaking ? "speakPulse 1s ease-in-out infinite" : undefined,
         transition: "border-color 200ms",
         position: "relative",
       }}>
-        {ini}
+        {isAdmin ? (
+          <HOSTeamAvatar size={32} />
+        ) : (
+          <div style={{
+            width: 32, height: 32, borderRadius: "50%",
+            background: active ? "#3A3A3A" : SURF_2,
+            color: TEXT,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 11, fontWeight: 700, fontFamily: "var(--font-ui)",
+          }}>{ini}</div>
+        )}
         {muted && (
           <div style={{
             position: "absolute", bottom: -2, right: -2,
