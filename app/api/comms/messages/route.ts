@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z }            from "zod";
 import { authorizeCommsCaller } from "@/lib/comms-auth";
 import { listMessages, insertMessage, markRead } from "@/lib/comms-data";
+import { rateLimit }    from "@/lib/rate-limit";
 
 const Role = z.enum(["admin", "client"]);
 
@@ -36,6 +37,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Invalid body" }, { status: 400 });
   }
   const { code, body, asRole } = parsed.data;
+
+  const rl = rateLimit(`msg:${code}:${asRole}`, { windowMs: 60_000, max: 30 });
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Too many messages" }, { status: 429 });
+  }
+
   const caller = await authorizeCommsCaller(code, asRole);
   if (!caller) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });

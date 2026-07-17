@@ -6,6 +6,7 @@ import { z }            from "zod";
 import { AccessToken }  from "livekit-server-sdk";
 import { authorizeCommsCaller } from "@/lib/comms-auth";
 import { getDocByCode }         from "@/lib/data-access";
+import { rateLimit }            from "@/lib/rate-limit";
 import {
   LIVEKIT_URL,
   LIVEKIT_API_KEY,
@@ -18,6 +19,12 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rl = rateLimit(`token:${ip}`, { windowMs: 60_000, max: 10 });
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Too many requests" }, { status: 429 });
+  }
+
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: "Invalid body" }, { status: 400 });

@@ -6,6 +6,7 @@ import webpush          from "web-push";
 import { authorizeAdmin } from "@/lib/comms-auth";
 import { getDocByCode, logDocEvent } from "@/lib/data-access";
 import { getSubscriptionsFor, deletePushSubscription, insertCallEvent } from "@/lib/comms-data";
+import { rateLimit }    from "@/lib/rate-limit";
 import {
   VAPID_PUBLIC_KEY,
   VAPID_PRIVATE_KEY,
@@ -16,6 +17,11 @@ import {
 const Body = z.object({ code: z.string().length(6) });
 
 export async function POST(req: Request) {
+  const rl = rateLimit("ring:admin", { windowMs: 60_000, max: 5 });
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Too many requests" }, { status: 429 });
+  }
+
   if (!(await authorizeAdmin())) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
