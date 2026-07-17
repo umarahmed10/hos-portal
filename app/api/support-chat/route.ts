@@ -1,4 +1,4 @@
-// POST /api/support-chat — HOS Automations client support chatbot via OpenRouter.
+// POST /api/support-chat — House Of Sales client support chatbot via OpenRouter.
 // Accepts message history, responds as an HOS support agent.
 import { NextResponse } from "next/server";
 import { z }            from "zod";
@@ -12,7 +12,7 @@ const Schema = z.object({
   messages: z.array(MessageSchema).min(1).max(50),
 });
 
-const SYSTEM_PROMPT = `You are an HOS Automations client support representative. HOS Automations is a premium lead generation company that delivers qualified inbound phone calls to plumbing and HVAC contractors across the United States.
+const SYSTEM_PROMPT = `You are a House Of Sales (HOS) client support representative. House Of Sales is a premium lead generation company that delivers qualified inbound phone calls to plumbing and HVAC contractors across the United States.
 
 Your role:
 - Answer client questions about billing, onboarding, campaign status, call quality, and service terms
@@ -20,7 +20,7 @@ Your role:
 - Reassure clients about the process and next steps
 - If you don't know something specific to the client's account, tell them to reply to their onboarding email or contact their account manager
 
-Key facts about HOS Automations:
+Key facts about House Of Sales (HOS):
 - We deliver live inbound calls from real homeowners in the client's service area
 - Calls must be over 60 seconds, from genuine homeowners, within the service area to qualify
 - Payment is per qualified call — no retainers, no setup fees

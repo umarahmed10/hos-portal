@@ -78,7 +78,7 @@ function LandingContent() {
           marginBottom:  20,
           animation:     "fadeUp 320ms var(--ease-out) 100ms both",
         }}>
-          HOS Automations
+          HOS
         </div>
 
         {/* Hero */}
@@ -232,7 +232,7 @@ function LandingContent() {
         {/* Footer */}
         <div style={{ position: "absolute", bottom: 28, left: 0, right: 0, textAlign: "center" }}>
           <p style={{ fontSize: 9, color: "#404040", fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }}>
-            HOS Automations · Demand Infrastructure
+            HOS · House Of Sales
           </p>
         </div>
       </div>

@@ -77,7 +77,7 @@ export function ClientCodeEntry() {
         lineHeight:   1.65,
         marginBottom: 28,
       }}>
-        Your 6-character access code was included in the email from HOS Automations.
+        Your 6-character access code was included in the email from House Of Sales.
       </p>
 
       <input

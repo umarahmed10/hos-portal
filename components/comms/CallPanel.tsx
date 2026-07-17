@@ -266,10 +266,12 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
 
           {/* Video tiles or audio participant grid */}
           {hasVideo ? (
-            <div style={{
+            <div className="comms-video-grid" style={{
+              position: "relative",
               display: "grid",
+              gap: 6, marginBottom: 12,
+              maxHeight: "50vh",
               gridTemplateColumns: remoteVideoTrack && localVideoTrack ? "1fr 1fr" : "1fr",
-              gap: 8, marginBottom: 12,
             }}>
               {remoteVideoTrack && (
                 <VideoTile
@@ -281,14 +283,27 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
                   isAdmin={me !== "admin"}
                 />
               )}
-              <VideoTile
-                track={localVideoTrack}
-                name={me === "admin" ? "HOS Team" : "You"}
-                isLocal
-                speaking={false}
-                muted={muted}
-                isAdmin={me === "admin"}
-              />
+              {localVideoTrack && (
+                remoteVideoTrack ? (
+                  <VideoTile
+                    track={localVideoTrack}
+                    name={me === "admin" ? "HOS" : "You"}
+                    isLocal
+                    speaking={false}
+                    muted={muted}
+                    isAdmin={me === "admin"}
+                  />
+                ) : (
+                  <VideoTile
+                    track={localVideoTrack}
+                    name={me === "admin" ? "HOS" : "You"}
+                    isLocal
+                    speaking={false}
+                    muted={muted}
+                    isAdmin={me === "admin"}
+                  />
+                )
+              )}
             </div>
           ) : (
             <div style={{

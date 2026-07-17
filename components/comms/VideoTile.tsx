@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import type { Track as LKTrack } from "livekit-client";
-import { TEXT, MUTED, GREEN, RED, SURF_2 } from "@/lib/styles";
+import { TEXT, GREEN, SURF_2 } from "@/lib/styles";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 
 interface Props {
@@ -33,15 +33,16 @@ export function VideoTile({ track, name, isLocal, speaking, muted, isAdmin }: Pr
   const hasVideo = track && !track.isMuted;
 
   return (
-    <div style={{
+    <div className="comms-video-tile" style={{
       position: "relative",
-      aspectRatio: "16/9",
-      borderRadius: 12,
+      borderRadius: 10,
       overflow: "hidden",
       background: SURF_2,
-      border: speaking ? `2px solid ${GREEN}` : "2px solid transparent",
+      border: speaking ? `2px solid ${GREEN}` : "2px solid rgba(255,255,255,0.06)",
       animation: speaking ? "speakPulse 1s ease-in-out infinite" : undefined,
       transition: "border-color 200ms",
+      minHeight: 120,
+      maxHeight: "40vh",
     }}>
       {hasVideo ? (
         <video
@@ -52,11 +53,12 @@ export function VideoTile({ track, name, isLocal, speaking, muted, isAdmin }: Pr
           style={{
             width: "100%", height: "100%", objectFit: "cover",
             transform: isLocal ? "scaleX(-1)" : undefined,
+            display: "block",
           }}
         />
       ) : (
         <div style={{
-          width: "100%", height: "100%",
+          width: "100%", height: "100%", minHeight: 120,
           display: "flex", alignItems: "center", justifyContent: "center",
           flexDirection: "column", gap: 6,
         }}>
@@ -80,6 +82,7 @@ export function VideoTile({ track, name, isLocal, speaking, muted, isAdmin }: Pr
         fontFamily: "var(--font-ui)",
         textShadow: "0 1px 3px rgba(0,0,0,0.7)",
         display: "flex", alignItems: "center", gap: 4,
+        background: "rgba(0,0,0,0.5)", padding: "2px 8px", borderRadius: 4,
       }}>
         {name.split(" ")[0]}
         {isLocal && <span style={{ opacity: 0.6 }}>(you)</span>}
@@ -99,7 +102,6 @@ export function VideoTile({ track, name, isLocal, speaking, muted, isAdmin }: Pr
         </div>
       )}
 
-      {/* Hidden video element for non-active state */}
       {!hasVideo && <video ref={videoRef} style={{ display: "none" }} />}
     </div>
   );

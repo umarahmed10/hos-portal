@@ -42,7 +42,7 @@ export function CommsCallOverlay({ code, clientName, onClose }: Props) {
         }}>
           <div>
             <div style={{ fontSize: 10, color: MUTED, letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 2 }}>
-              HOS Automations · Direct Line
+              HOS · Direct Line
             </div>
             <div style={{ fontSize: 15, fontWeight: 600, color: TEXT }}>
               {clientName}

@@ -233,7 +233,7 @@ export function SignPage({ doc, redirectAfter }: SignPageProps) {
               }}
             >
               <div style={{ fontSize: 9, letterSpacing: "0.14em", fontWeight: 700, color: SUBTLE, fontFamily: MONO, marginBottom: 16, textTransform: "uppercase" }}>
-                Service Agreement · HOS Automations
+                Service Agreement · House Of Sales
               </div>
               {doc.agreement_text
                 ? (() => {

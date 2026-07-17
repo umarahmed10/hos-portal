@@ -34,9 +34,9 @@ export async function POST(req: Request) {
 
   try {
     await resend.emails.send({
-      from:    `HOS Automations <${fromEmail}>`,
+      from:    `House Of Sales <${fromEmail}>`,
       to,
-      subject: `Your signed agreement is ready — HOS Automations`,
+      subject: `Your signed agreement is ready — House Of Sales`,
       html: `
 <!DOCTYPE html>
 <html lang="en">
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
           <!-- Header -->
           <tr>
             <td style="padding:32px 36px 24px;background:#0D0C0B;border-bottom:1px solid #2A2A2A;">
-              <p style="margin:0;color:#727272;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;font-weight:600;font-family:'Courier New',monospace;">HOS AUTOMATIONS</p>
+              <p style="margin:0;color:#727272;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;font-weight:600;font-family:'Courier New',monospace;">HOUSE OF SALES</p>
               <p style="margin:18px 0 0;color:#727272;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-family:'Courier New',monospace;">Hi ${name}${company ? ` · ${company}` : ""},</p>
               <h1 style="margin:6px 0 0;color:#F3F1EC;font-size:28px;font-weight:400;font-style:italic;letter-spacing:-0.3px;line-height:1.25;font-family:Georgia,serif;">You&rsquo;re in. Agreement signed.</h1>
             </td>
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
           <tr>
             <td style="padding:18px 36px;background:#0A0A0A;border-top:1px solid #2A2A2A;">
               <p style="margin:0;color:#404040;font-size:11px;text-align:center;letter-spacing:0.3px;">
-                HOS Automations &bull; Qualified Lead Generation &bull; hosautomations.co
+                HOS &bull; House Of Sales &bull; hosautomations.co
               </p>
             </td>
           </tr>

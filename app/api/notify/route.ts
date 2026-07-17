@@ -43,12 +43,12 @@ export async function POST(req: Request) {
     const { name, company, code, amount, email } = body;
     try {
       await resend.emails.send({
-        from:    `HOS Automations <${fromEmail}>`,
+        from:    `House Of Sales <${fromEmail}>`,
         to:      toEmail,
         subject: `💳 [PAID] ${name}${company ? ` · ${company}` : ""} — $${Number(amount).toFixed(2)}`,
         html: `
           <div style="background:#111;color:#F3F1EC;padding:32px;font-family:-apple-system,sans-serif;max-width:500px;border-radius:12px;">
-            <p style="color:#727272;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin:0 0 8px">HOS AUTOMATIONS</p>
+            <p style="color:#727272;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin:0 0 8px">HOUSE OF SALES</p>
             <h2 style="margin:0 0 20px;font-size:22px;font-style:italic;font-weight:400;font-family:Georgia,serif">Payment received.</h2>
             <table style="border-collapse:collapse;width:100%">
               <tr><td style="padding:8px 0;color:#727272;font-size:12px;border-bottom:1px solid #2A2A2A">Client</td><td style="color:#F3F1EC;font-size:13px;text-align:right;border-bottom:1px solid #2A2A2A">${name}${company ? ` · ${company}` : ""}</td></tr>
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
 
   try {
     await resend.emails.send({
-      from:    `HOS Automations <${fromEmail}>`,
+      from:    `House Of Sales <${fromEmail}>`,
       to:      toEmail,
       subject: `🔔 ${name}${company ? ` · ${company}` : ""} has signed — HOS`,
       html: `
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0A0A0A; margin: 0; padding: 24px;">
   <div style="max-width: 480px; margin: 0 auto; background: #111111; border-radius: 12px; overflow: hidden; border: 1px solid #2A2A2A;">
     <div style="background: #0D0C0B; padding: 24px 28px; border-bottom: 1px solid #2A2A2A;">
-      <p style="color: #727272; font-size: 11px; letter-spacing: 2.5px; margin: 0 0 6px; text-transform: uppercase; font-family: 'Courier New', monospace;">HOS Automations</p>
+      <p style="color: #727272; font-size: 11px; letter-spacing: 2.5px; margin: 0 0 6px; text-transform: uppercase; font-family: 'Courier New', monospace;">House Of Sales</p>
       <h1 style="color: #F3F1EC; font-size: 22px; font-weight: 400; font-style: italic; font-family: Georgia, serif; margin: 0;">New signature received.</h1>
     </div>
     <div style="padding: 28px;">
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
       </div>
     </div>
     <div style="padding: 16px 28px; background: #0A0A0A; border-top: 1px solid #2A2A2A;">
-      <p style="margin: 0; color: #404040; font-size: 11px; text-align: center;">HOS Automations &bull; hosautomations.co</p>
+      <p style="margin: 0; color: #404040; font-size: 11px; text-align: center;">HOS &bull; House Of Sales &bull; hosautomations.co</p>
     </div>
   </div>
 </body>

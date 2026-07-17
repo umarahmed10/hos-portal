@@ -51,7 +51,7 @@ export default async function PortalLayout({ children, params }: Props) {
             <HOSLogo size={24} theme="dark" showWordmark={false} />
             <div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "2px", color: MUTED, textTransform: "uppercase", marginBottom: 1 }}>
-                HOS Automations
+                HOS
               </div>
               <div style={{ fontFamily: "var(--font-ui)", fontSize: 12, fontWeight: 600, color: TEXT, letterSpacing: "0.3px" }}>
                 Client Portal

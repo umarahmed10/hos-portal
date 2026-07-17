@@ -64,7 +64,7 @@ export async function sendPortalEmail({
 
   try {
     await resend.emails.send({
-      from:    `HOS Automations <${fromEmail}>`,
+      from:    `House Of Sales <${fromEmail}>`,
       to:      recipientEmail,
       subject: `Your portal is ready, ${recipientName}.`,
       html: `
@@ -86,7 +86,7 @@ export async function sendPortalEmail({
               <table cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding-right:10px;">${hosMarkSvg}</td>
-                  <td style="color:#727272;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;font-weight:600;font-family:'Courier New',monospace;">HOS AUTOMATIONS</td>
+                  <td style="color:#727272;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;font-weight:600;font-family:'Courier New',monospace;">HOUSE OF SALES</td>
                 </tr>
               </table>
               <p style="margin:18px 0 0;color:#727272;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-family:'Courier New',monospace;">Hi ${recipientName}${recipientCompany ? ` &middot; ${recipientCompany}` : ""},</p>
@@ -132,7 +132,7 @@ export async function sendPortalEmail({
           <tr>
             <td style="padding:18px 36px;background:#0A0A0A;border-top:1px solid #2A2A2A;">
               <p style="margin:0;color:#404040;font-size:11px;text-align:center;letter-spacing:0.3px;">
-                HOS Automations &bull; Demand Infrastructure &bull; hosautomations.co
+                HOS &bull; House Of Sales &bull; hosautomations.co
               </p>
             </td>
           </tr>

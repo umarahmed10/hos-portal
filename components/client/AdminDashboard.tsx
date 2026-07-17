@@ -229,7 +229,7 @@ export function AdminDashboard({ initialDocs }: Props) {
             <HOSLogo size={28} theme="dark" showWordmark={false} />
             <div>
               <div className="admin-header-wordmark" style={{ fontSize: 9, letterSpacing: "2.5px", color: MUTED, fontFamily: "var(--font-mono)", fontWeight: 700, marginBottom: 2, textTransform: "uppercase" }}>
-                HOS Automations
+                HOS
               </div>
               <div className="admin-header-title" style={{ fontFamily: "var(--font-ui)", fontSize: 18, fontWeight: 700, color: TEXT, letterSpacing: "-0.2px" }}>
                 Admin Dashboard

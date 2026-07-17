@@ -53,10 +53,6 @@ export function AdminShare({ doc, events, sent: sentProp = false }: Props) {
   const [savingLink, setSavingLink]         = useState(false);
   const [linkSaved, setLinkSaved]           = useState(false);
 
-  // Stripe payment link creation
-  const [creatingLink, setCreatingLink]     = useState(false);
-  const [stripeUrl, setStripeUrl]           = useState(doc.stripe_payment_link_url ?? "");
-
   // Operational event posting
   const [opType,     setOpType]    = useState(OPERATIONAL_EVENTS[0].value as string);
   const [opDetail,   setOpDetail]  = useState("");
@@ -147,29 +143,6 @@ export function AdminShare({ doc, events, sent: sentProp = false }: Props) {
       toast.error(`Failed to save: ${String(err)}`);
     } finally {
       setSavingLink(false);
-    }
-  }
-
-  async function handleCreateStripeLink() {
-    setCreatingLink(true);
-    try {
-      const res  = await fetch("/api/stripe/create-payment-link", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ code: doc.code }),
-      });
-      const json = await res.json();
-      if (json.ok) {
-        setStripeUrl(json.data.url);
-        toast.success("Stripe payment link created and saved");
-        router.refresh();
-      } else {
-        toast.error(json.error ?? "Failed to create payment link");
-      }
-    } catch {
-      toast.error("Network error");
-    } finally {
-      setCreatingLink(false);
     }
   }
 
@@ -350,7 +323,7 @@ export function AdminShare({ doc, events, sent: sentProp = false }: Props) {
           </div>
         </div>
 
-        {/* 4. Payment Status + Stripe Link */}
+        {/* 4. Payment */}
         <div style={{ ...css.card, marginBottom: 12 }}>
           <div style={sectionLabel}>Payment</div>
 
@@ -372,113 +345,37 @@ export function AdminShare({ doc, events, sent: sentProp = false }: Props) {
             )}
           </div>
 
-          {/* Stripe Payment Link */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ ...css.lbl, marginBottom: 6 }}>Stripe Payment Link</label>
-
-            {stripeUrl ? (
-              <div>
-                <div style={{
-                  background:   GREEN_DIM,
-                  border:       `1px solid ${GREEN_BORDER}`,
-                  borderRadius: 8,
-                  padding:      "10px 14px",
-                  marginBottom: 8,
-                  display:      "flex",
-                  alignItems:   "center",
-                  gap:          8,
-                }}>
-                  <span style={{ color: GREEN, fontSize: 12, flexShrink: 0 }}>✓</span>
-                  <span style={{
-                    fontFamily:   MONO,
-                    fontSize:     11,
-                    color:        TEXT,
-                    flex:         1,
-                    overflow:     "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace:   "nowrap",
-                  }}>
-                    {stripeUrl}
-                  </span>
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <CopyButton text={stripeUrl} label="Copy Link" variant="secondary" />
-                  <button
-                    onClick={() => window.open(stripeUrl, "_blank")}
-                    style={{ ...css.btnS, padding: "7px 14px", fontSize: 12 }}
-                  >
-                    Open ↗
-                  </button>
-                  <button
-                    onClick={handleCreateStripeLink}
-                    disabled={creatingLink}
-                    style={{ ...css.btnS, padding: "7px 14px", fontSize: 12, opacity: 0.6 }}
-                  >
-                    {creatingLink ? "Creating…" : "Regenerate"}
-                  </button>
-                </div>
-                {doc.paid_at && (
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: GREEN, marginTop: 8, letterSpacing: "0.06em" }}>
-                    ✓ PAID — {new Date(doc.paid_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                {doc.invoice_total > 0 ? (
-                  <button
-                    onClick={handleCreateStripeLink}
-                    disabled={creatingLink}
-                    style={{ ...css.btnP, width: "100%", opacity: creatingLink ? 0.5 : 1, fontSize: 13 }}
-                  >
-                    {creatingLink ? "Creating…" : `CREATE STRIPE LINK — $${doc.invoice_total.toFixed(2)} →`}
-                  </button>
-                ) : (
-                  <p style={{ fontSize: 13, color: SUBTLE, fontFamily: BODY, padding: "8px 0", margin: 0 }}>
-                    Set an invoice total first to create a payment link.
-                  </p>
-                )}
-                <p style={{ fontSize: 11, color: SUBTLE, marginTop: 8, fontFamily: BODY, lineHeight: 1.6 }}>
-                  Creates a secure Stripe checkout page. Payment status updates automatically when client pays.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Manual override */}
-          {!stripeUrl && (
-            <details>
-              <summary style={{ fontSize: 10, color: SUBTLE, cursor: "pointer", fontFamily: MONO, letterSpacing: "0.08em", listStyle: "none", userSelect: "none" }}>
-                USE CUSTOM LINK INSTEAD
-              </summary>
-              <form onSubmit={handleSavePaymentLink} style={{ marginTop: 8 }}>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="url"
-                    value={paymentLink}
-                    onChange={e => { setPaymentLink(e.target.value); setLinkSaved(false); }}
-                    placeholder="https://buy.stripe.com/…"
-                    style={{ ...css.inp, flex: 1 }}
-                  />
-                  <button
-                    type="submit"
-                    disabled={savingLink}
-                    style={{
-                      ...css.btnS,
-                      padding:     "10px 14px",
-                      fontSize:    12,
-                      flexShrink:  0,
-                      opacity:     savingLink ? 0.5 : 1,
-                      color:       linkSaved ? GREEN : MUTED,
-                      borderColor: linkSaved ? GREEN_BORDER : BORDER,
-                    }}
-                  >
-                    {savingLink ? "Saving…" : linkSaved ? "✓ Saved" : "Save"}
-                  </button>
-                </div>
-              </form>
-            </details>
-          )}
+          {/* Payment Link */}
+          <form onSubmit={handleSavePaymentLink}>
+            <label style={{ ...css.lbl, marginBottom: 6 }}>Payment Link</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="url"
+                value={paymentLink}
+                onChange={e => { setPaymentLink(e.target.value); setLinkSaved(false); }}
+                placeholder="https://pay.example.com/..."
+                style={{ ...css.inp, flex: 1 }}
+              />
+              <button
+                type="submit"
+                disabled={savingLink}
+                style={{
+                  ...css.btnS,
+                  padding:     "10px 14px",
+                  fontSize:    12,
+                  flexShrink:  0,
+                  opacity:     savingLink ? 0.5 : 1,
+                  color:       linkSaved ? GREEN : MUTED,
+                  borderColor: linkSaved ? GREEN_BORDER : BORDER,
+                }}
+              >
+                {savingLink ? "Saving…" : linkSaved ? "✓ Saved" : "Save"}
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: SUBTLE, marginTop: 6, fontFamily: BODY, lineHeight: 1.5 }}>
+              Paste any payment URL. Shown to client as a &quot;Pay Now&quot; button in their portal.
+            </p>
+          </form>
         </div>
 
         {/* 5. Campaign Performance → dedicated page */}

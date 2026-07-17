@@ -484,3 +484,54 @@ nav::-webkit-scrollbar {
   box-shadow:   0 4px 24px rgba(0,0,0,0.3);
   transform:    translateY(-1px);
 }
+
+/* ── Comms — responsive video tiles ──────────────────────────────────────── */
+
+/* Desktop: side-by-side Discord-style tiles */
+@media (min-width: 641px) {
+  .comms-video-grid {
+    grid-template-columns: 1fr 1fr !important;
+    max-height: 50vh;
+  }
+  .comms-video-tile {
+    max-height: 40vh;
+  }
+}
+
+/* Tablet: slightly smaller tiles */
+@media (max-width: 768px) and (min-width: 481px) {
+  .comms-video-grid {
+    max-height: 45vh;
+  }
+  .comms-video-tile {
+    max-height: 35vh;
+  }
+}
+
+/* Mobile: FaceTime-style fullscreen stacked layout */
+@media (max-width: 480px) {
+  .comms-video-grid {
+    grid-template-columns: 1fr !important;
+    max-height: none !important;
+    gap: 4px !important;
+  }
+  .comms-video-tile {
+    max-height: none !important;
+    min-height: 35vh;
+    border-radius: 8px !important;
+  }
+  .comms-video-tile:first-child:last-child {
+    min-height: 60vh;
+    border-radius: 0 !important;
+  }
+}
+
+/* Comms sidebar — hide on mobile, show chat fullscreen */
+@media (max-width: 640px) {
+  .comms-sidebar {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 100 !important;
+    width: 100% !important;
+  }
+}

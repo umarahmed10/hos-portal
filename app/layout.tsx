@@ -43,7 +43,7 @@ const dmMono = DM_Mono({
 // ── Metadata ───────────────────────────────────────────────────────────────
 export const metadata: Metadata = {
   title:       "HOS Client Portal",
-  description: "Review and sign your HOS Automations service agreement.",
+  description: "Review and sign your House Of Sales service agreement.",
   robots:      { index: false, follow: false }, // private portal
   icons: {
     icon:     "/icon.svg",

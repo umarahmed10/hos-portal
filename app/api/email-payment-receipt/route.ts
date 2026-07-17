@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
   try {
     await resend.emails.send({
-      from:    `HOS Automations <${fromEmail}>`,
+      from:    `House Of Sales <${fromEmail}>`,
       to,
       subject: `Payment confirmed — ${money(amount)} received`,
       html: `
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     <tr><td style="padding:32px 36px 24px;background:#0D0C0B;border-bottom:1px solid #2A2A2A;">
       <table cellpadding="0" cellspacing="0"><tr>
         <td style="padding-right:10px;vertical-align:middle;">${hosMarkSvg}</td>
-        <td style="vertical-align:middle;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:#727272;text-transform:uppercase;">HOS AUTOMATIONS</td>
+        <td style="vertical-align:middle;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:#727272;text-transform:uppercase;">HOUSE OF SALES</td>
       </tr></table>
       <p style="margin:18px 0 0;color:#727272;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-family:'Courier New',monospace;">Hi ${name}${company ? ` · ${company}` : ""},</p>
       <h1 style="margin:6px 0 0;color:#F3F1EC;font-size:26px;font-weight:400;font-style:italic;font-family:Georgia,serif;">Payment confirmed.</h1>
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
       <div style="background:#1A1A1A;border:1px solid #2A2A2A;border-left:2px solid #4EAD87;border-radius:8px;padding:18px 20px;margin-bottom:24px;">
         <p style="margin:0 0 4px;color:#727272;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-family:'Courier New',monospace;">Amount Received</p>
         <p style="margin:0;color:#4EAD87;font-size:28px;font-weight:700;letter-spacing:-0.5px;">${money(amount)}</p>
-        <p style="margin:6px 0 0;color:#727272;font-size:12px;">via Stripe · ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+        <p style="margin:6px 0 0;color:#727272;font-size:12px;">${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
       </div>
 
       ${portalSlug ? `
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
     <!-- Footer -->
     <tr><td style="padding:16px 36px;background:#0A0A0A;border-top:1px solid #2A2A2A;">
       <p style="margin:0;color:#404040;font-size:11px;text-align:center;">
-        HOS Automations &bull; Demand Infrastructure &bull; hosautomations.co
+        HOS &bull; House Of Sales &bull; hosautomations.co
       </p>
     </td></tr>
 

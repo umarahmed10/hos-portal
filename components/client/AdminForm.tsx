@@ -226,7 +226,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
             <HOSLogo size={24} theme="dark" showWordmark={false} />
             <div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: MUTED, textTransform: "uppercase", marginBottom: 2 }}>
-                HOS Automations
+                HOS
               </div>
               <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(20px, 3vw, 28px)", fontWeight: 400, fontStyle: "italic", color: TEXT, letterSpacing: "0.005em", margin: 0 }}>
                 {mode === "edit" ? `Edit — ${initialDoc?.name}` : "New Client"}
@@ -480,7 +480,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
               <input
                 value={paymentLink}
                 onChange={e => setPaymentLink(e.target.value)}
-                placeholder="https://pay.stripe.com/..."
+                placeholder="https://pay.example.com/..."
                 type="url"
                 style={css.inp}
               />

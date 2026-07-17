@@ -76,7 +76,7 @@ const s = StyleSheet.create({
 function PageFooter({ code, date }: { code: string; date: string }) {
   return (
     <View style={s.footer} fixed>
-      <Text style={s.footerText}>HOS Automations Client Portal</Text>
+      <Text style={s.footerText}>House Of Sales Client Portal</Text>
       <Text style={s.footerText}>Doc #{code} · {date}</Text>
     </View>
   );
@@ -96,7 +96,7 @@ export function DocPDF({ doc }: { doc: Doc }) {
 
           {/* Dark header */}
           <View style={s.agHeader}>
-            <Text style={s.agBrand}>HOS Automations</Text>
+            <Text style={s.agBrand}>House Of Sales</Text>
             <Text style={s.agTitle}>Service Agreement</Text>
             <Text style={s.agSub}>Generated {dateStr}</Text>
           </View>
@@ -157,7 +157,7 @@ export function DocPDF({ doc }: { doc: Doc }) {
           {/* Dark invoice header */}
           <View style={s.invHeader}>
             <Text style={s.invLabel}>Invoice</Text>
-            <Text style={s.invTitle}>HOS Automations</Text>
+            <Text style={s.invTitle}>House Of Sales</Text>
             <Text style={s.invSub}>Lead Generation Services</Text>
             <Text style={s.invDates}>
               Issued {dateStr}{doc.due_date ? `  ·  Due ${fmt(doc.due_date)}` : ""}

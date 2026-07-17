@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Room } from "livekit-client";
 import { CallPanel } from "@/components/comms/CallPanel";
@@ -18,6 +19,7 @@ function initials(name: string): string {
 }
 
 export function AdminCommsUI({ clients }: { clients: Client[] }) {
+  const router = useRouter();
   const [active, setActive] = useState<Client | null>(null);
   const [autoJoin, setAutoJoin] = useState(false);
   const [ringing, setRinging] = useState<string | null>(null);
@@ -68,6 +70,24 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
           <div style={{
             display: "flex", alignItems: "center", gap: 8, marginBottom: 12,
           }}>
+            <button
+              onClick={() => router.push("/admin")}
+              aria-label="Back to dashboard"
+              title="Back to dashboard"
+              style={{
+                width: 28, height: 28, borderRadius: 6,
+                background: "rgba(243,241,236,0.06)", border: `1px solid ${BORDER}`,
+                color: MUTED, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0, transition: "background 120ms ease",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(243,241,236,0.12)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(243,241,236,0.06)"; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
             <HOSTeamAvatar size={24} />
             <span style={{
               fontFamily: "var(--font-ui)", fontSize: 13, fontWeight: 600, color: TEXT,

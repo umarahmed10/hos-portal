@@ -38,7 +38,7 @@ export default async function PortalInvoicesPage({ params }: Props) {
   const invoiceTotal = Number(doc.invoice_total  ?? 0);
   const amtPaid      = Number(doc.amount_paid    ?? 0);
   const payStatus    = doc.payment_status ?? "unpaid";
-  const payLink      = doc.stripe_payment_link_url ?? doc.payment_link ?? null;
+  const payLink      = doc.payment_link ?? null;
   const callsQual    = Number(doc.calls_qualified  ?? 0);
   const callCap      = Number(doc.monthly_call_cap ?? 0);
   const ratePerCall  = Number(doc.rate_per_call    ?? 0);
@@ -170,10 +170,9 @@ export default async function PortalInvoicesPage({ params }: Props) {
             <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 14, color: GREEN }}>
               Payment Received
             </div>
-            {doc.paid_at && (
+            {amtPaid > 0 && (
               <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 2, letterSpacing: "0.06em" }}>
-                {new Date(doc.paid_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                {doc.stripe_customer_email ? ` · ${doc.stripe_customer_email}` : ""}
+                {money(amtPaid)} received
               </div>
             )}
           </div>

@@ -78,7 +78,7 @@ export default async function ClientDocPage({ params }: Props) {
             <HOSLogo size={26} theme="dark" showWordmark={false} />
             <div>
               <div style={{ fontSize: 9, letterSpacing: "2px", color: MUTED, fontFamily: "var(--font-mono)", fontWeight: 700, textTransform: "uppercase" }}>
-                HOS Automations
+                HOS
               </div>
               <div style={{ fontFamily: "var(--font-ui)", fontSize: 14, fontWeight: 700, color: TEXT }}>
                 Client Portal

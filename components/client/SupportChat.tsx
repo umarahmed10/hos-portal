@@ -9,7 +9,7 @@ interface Message {
   content: string;
 }
 
-const DEFAULT_GREETING = "Hi there! I'm the HOS Automations support assistant. I can help with billing, onboarding, call quality, and campaign questions. What can I help you with?";
+const DEFAULT_GREETING = "Hi there! I'm the House Of Sales support assistant. I can help with billing, onboarding, call quality, and campaign questions. What can I help you with?";
 
 interface Props {
   slug?:       string;
@@ -20,7 +20,7 @@ export function SupportChat({ clientName }: Props) {
   const greeting: Message = {
     role:    "assistant",
     content: clientName
-      ? `Hi ${clientName}! I'm the HOS Automations support assistant. I can help with billing, onboarding, call quality, and campaign questions. What can I help you with?`
+      ? `Hi ${clientName}! I'm the House Of Sales support assistant. I can help with billing, onboarding, call quality, and campaign questions. What can I help you with?`
       : DEFAULT_GREETING,
   };
   const [messages, setMessages] = useState<Message[]>([greeting]);

@@ -75,7 +75,7 @@ export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
     <div style={{ background: BG, minHeight: "100vh", color: TEXT, padding: 24 }}>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <div style={{ fontSize: 11, color: MUTED, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 6 }}>
-          HOS Automations · Direct Line
+          HOS · Direct Line
         </div>
         <h1 style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontWeight: 400, fontSize: 34, margin: "0 0 6px" }}>
           Hi {clientName.split(" ")[0]}.

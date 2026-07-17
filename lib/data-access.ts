@@ -57,7 +57,6 @@ const DOC_COLUMNS = [
   "accepted_esign_terms",
   "signature", "signed_at",
   "calls_total", "calls_qualified", "jobs_booked", "ad_spend", "avg_job_value", "monthly_budget", "monthly_call_cap", "rate_per_call",
-  "stripe_payment_link_id", "stripe_payment_link_url", "stripe_session_id", "stripe_customer_email", "paid_at",
   "created_at", "updated_at",
 ].join(", ");
 
@@ -392,21 +391,6 @@ export async function getDocEvents(docId: string): Promise<DocEvent[]> {
 
   if (error) throw new Error(`[data-access] getDocEvents: ${error.message}`);
   return (data ?? []) as unknown as DocEvent[];
-}
-
-/**
- * Fetch a doc by its Stripe payment link ID.
- * Used by: webhook handler for payment completion.
- */
-export async function getDocByStripeLink(paymentLinkId: string): Promise<Doc | null> {
-  const db = getAdminClient();
-  const { data, error } = await db
-    .from("docs")
-    .select(DOC_COLUMNS)
-    .eq("stripe_payment_link_id", paymentLinkId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data as unknown as Doc;
 }
 
 /**

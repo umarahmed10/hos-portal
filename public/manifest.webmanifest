@@ -1,7 +1,7 @@
 {
   "name": "HOS Client Portal",
   "short_name": "HOS Portal",
-  "description": "Direct line to the HOS Automations team.",
+  "description": "Direct line to the House Of Sales team.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

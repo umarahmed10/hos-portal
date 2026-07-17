@@ -37,11 +37,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Client not found" }, { status: 404 });
   }
 
-  webpush.setVapidDetails(VAPID_SUBJECT(), VAPID_PUBLIC_KEY(), VAPID_PRIVATE_KEY());
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT(), VAPID_PUBLIC_KEY(), VAPID_PRIVATE_KEY());
+  } catch (err) {
+    console.error("[comms/ring] VAPID config error:", err);
+    return NextResponse.json(
+      { ok: false, error: "Push notifications not configured. Set the VAPID_* environment variables." },
+      { status: 503 },
+    );
+  }
 
   const subs = await getSubscriptionsFor(code, "client");
 
-  const expiresAt = Date.now() + 30_000; // ring auto-dismisses after 30s
+  if (subs.length === 0) {
+    // No devices registered — still insert the call event so the client
+    // sees "Missed call" when they next open the chat.
+    await insertCallEvent(code, "admin", {
+      event:      "started",
+      actor_name: "HOS Team",
+    }).catch(() => {});
+
+    return NextResponse.json({
+      ok: true,
+      data: { delivered: 0, total: 0, note: "Client has no devices registered for push. Call started — they'll see it when they open the chat." },
+    });
+  }
+
+  const expiresAt = Date.now() + 30_000;
   const payload = JSON.stringify({
     type:       "incoming_call",
     code,
@@ -61,7 +83,6 @@ export async function POST(req: Request) {
     )
   );
 
-  // Purge dead subscriptions (404/410 from push service)
   let delivered = 0;
   await Promise.all(results.map(async (r, i) => {
     if (r.status === "fulfilled") { delivered++; return; }

@@ -43,11 +43,6 @@ export const NOTIFY_EMAIL      = () => process.env.NOTIFY_EMAIL ?? require("ADMI
 // App URL
 export const APP_URL = () => optional("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
 
-// Stripe
-export const STRIPE_SECRET_KEY        = process.env.STRIPE_SECRET_KEY        ?? "";
-export const STRIPE_WEBHOOK_SECRET    = process.env.STRIPE_WEBHOOK_SECRET    ?? "";
-export const NEXT_PUBLIC_STRIPE_PK    = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
-
 // LiveKit (voice/text realtime)
 export const LIVEKIT_URL              = () => require("NEXT_PUBLIC_LIVEKIT_URL");
 export const LIVEKIT_API_KEY          = () => require("LIVEKIT_API_KEY");

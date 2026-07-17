@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
   const { name, company, service_type, service_area, fee, date, terms } = parsed.data;
 
-  const systemPrompt = `You are a professional contracts writer for HOS Automations, a US-based lead generation company that sends qualified inbound phone calls to plumbing and HVAC contractors. You write clear, professional service agreements that protect both parties. Write in plain business English — no legalese, no filler. Use numbered sections with ALL CAPS titles.
+  const systemPrompt = `You are a professional contracts writer for House Of Sales (HOS), a US-based lead generation company that sends qualified inbound phone calls to plumbing and HVAC contractors. You write clear, professional service agreements that protect both parties. Write in plain business English — no legalese, no filler. Use numbered sections with ALL CAPS titles.
 
 OUTPUT FORMAT: Plain text only. No markdown. No asterisks (*). No hash symbols (#). No bold or italic formatting. Section titles in ALL CAPS. Numbered sections only.`;
 
@@ -41,8 +41,8 @@ Start Date: ${date || "TBD"}
 ${terms ? `\nCustom Terms:\n${terms}` : ""}
 
 The agreement must include these sections:
-1. PARTIES — HOS Automations (Provider) and ${company || name} (Client)
-2. SERVICES — What HOS Automations provides (qualified inbound calls for ${service_type || "home services"} in ${service_area || "the agreed area"})
+1. PARTIES — House Of Sales (Provider) and ${company || name} (Client)
+2. SERVICES — What House Of Sales provides (qualified inbound calls for ${service_type || "home services"} in ${service_area || "the agreed area"})
 3. CALL QUALIFICATION CRITERIA — Minimum call duration (60 seconds), genuine homeowner, within service area, real service intent
 4. RATES & BILLING — $${fee || "TBD"} per qualified call, weekly invoicing every Monday, net-7 payment terms
 5. TERM & CANCELLATION — Either party may cancel with 7 days written notice

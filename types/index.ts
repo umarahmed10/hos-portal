@@ -82,13 +82,6 @@ export interface Doc {
   monthly_call_cap: number | null;
   rate_per_call:    number | null;
 
-  // Stripe
-  stripe_payment_link_id?:  string | null;
-  stripe_payment_link_url?: string | null;
-  stripe_session_id?:       string | null;
-  stripe_customer_email?:   string | null;
-  paid_at?:                 string | null;
-
   // Audit
   created_at:     string;
   updated_at:     string;
@@ -165,12 +158,6 @@ export type UpdateDocInput = Partial<Omit<CreateDocInput, "code">> & {
   accepted_esign_terms?: boolean;
   signature?:           string;
   signed_at?:           string;
-  // Stripe
-  stripe_payment_link_id?:  string | null;
-  stripe_payment_link_url?: string | null;
-  stripe_session_id?:       string | null;
-  stripe_customer_email?:   string | null;
-  paid_at?:                 string | null;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

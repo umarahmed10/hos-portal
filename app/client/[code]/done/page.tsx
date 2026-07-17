@@ -98,7 +98,7 @@ export default async function ClientDonePage({ params }: Props) {
           marginBottom: 36,
           animation:    "fadeUp 400ms var(--ease-out) 500ms both",
         }}>
-          Welcome to HOS Automations.
+          Welcome to House Of Sales.
         </p>
 
         {/* Animated checklist */}

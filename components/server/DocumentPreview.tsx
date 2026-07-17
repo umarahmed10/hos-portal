@@ -47,7 +47,7 @@ export function DocumentPreview({ doc, showSign = true }: Props) {
             READY TO GET STARTED?
           </div>
           <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.7, marginBottom: 22 }}>
-            Review everything above, then sign to confirm your agreement with HOS Automations.
+            Review everything above, then sign to confirm your agreement with House Of Sales.
           </p>
           {/* Sign button rendered by client page — passed as slot */}
         </div>
