@@ -9,6 +9,7 @@ import { AutoRefresh }             from "@/components/client/AutoRefresh";
 import { HOSLogo }                 from "@/components/shared/HOSLogo";
 import { FloatingSupport }         from "@/components/client/FloatingSupport";
 import { CommsFAB }                from "@/components/comms/CommsFAB";
+import { IncomingCallListener }    from "@/components/comms/IncomingCallListener";
 import { BORDER, BG, MUTED, TEXT } from "@/lib/styles";
 
 interface Props {
@@ -90,6 +91,9 @@ export default async function PortalLayout({ children, params }: Props) {
 
       {/* Floating call button (left of support bubble) */}
       <CommsFAB code={doc.code} />
+
+      {/* Global incoming call listener — rings on ANY portal page */}
+      <IncomingCallListener code={doc.code} clientName={doc.name} />
 
       {/* Floating support button */}
       <FloatingSupport slug={slug} name={doc.name} />

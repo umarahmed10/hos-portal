@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { toast } from "sonner";
 import type { Room } from "livekit-client";
 import { CallPanel }          from "@/components/comms/CallPanel";
 import { ChatPanel }          from "@/components/comms/ChatPanel";
 import { IncomingCallModal }  from "@/components/comms/IncomingCallModal";
+import { usePushSubscription, type PushState } from "@/lib/comms/usePushSubscription";
 import { BG, SURF, BORDER, TEXT, MUTED, GOLD, GREEN } from "@/lib/styles";
 
 interface Props {
@@ -19,7 +19,6 @@ type SessionState = "checking" | "unauth" | "ready";
 export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
   const search = useSearchParams();
   const [session, setSession] = useState<SessionState>("checking");
-  const [pushState, setPushState] = useState<"idle" | "subscribed" | "denied" | "unsupported">("idle");
   const [incoming, setIncoming] = useState<{ caller: string; expiresAt: number } | null>(null);
   const [inCall, setInCall] = useState(false);
   const [lkRoom, setLkRoom] = useState<Room | null>(null);
@@ -39,58 +38,22 @@ export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
     return () => { cancelled = true; };
   }, [code]);
 
-  // ── Register SW + subscribe to push once authenticated ─────────────────────
-  useEffect(() => {
-    if (session !== "ready") return;
-    if (typeof window === "undefined") return;
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setPushState("unsupported"); return;
-    }
+  const onIncoming = useCallback((call: { caller: string; expiresAt: number }) => {
+    setIncoming(call);
+  }, []);
 
-    (async () => {
-      const reg = await navigator.serviceWorker.register("/sw-comms.js", { scope: "/" });
-      await navigator.serviceWorker.ready;
+  const onJoinCall = useCallback(() => {
+    setInCall(true);
+    setIncoming(null);
+  }, []);
 
-      // SW → page channel. Two message types:
-      //  - "incoming-call": SW got a push while a tab is open → show in-app ring
-      //  - "join-call":     user tapped the OS notification → auto-join voice
-      navigator.serviceWorker.addEventListener("message", (e) => {
-        const msg = e.data;
-        if (!msg) return;
-        if (msg.type === "join-call" && msg.room === code) {
-          setInCall(true);
-          setIncoming(null);
-          return;
-        }
-        if (msg.type === "incoming-call" && msg.code === code) {
-          setIncoming({
-            caller:    msg.callerName || "HOS Team",
-            expiresAt: msg.expiresAt || (Date.now() + 25_000),
-          });
-        }
-      });
-
-      let perm: NotificationPermission = Notification.permission;
-      if (perm === "default") perm = await Notification.requestPermission();
-      if (perm !== "granted") { setPushState("denied"); return; }
-
-      const existing = await reg.pushManager.getSubscription();
-      const sub = existing ?? await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
-      });
-
-      await fetch("/api/comms/push/subscribe", {
-        method: "POST", headers: { "content-type": "application/json" },
-        body:   JSON.stringify({ code, asRole: "client", subscription: sub.toJSON() }),
-      });
-
-      setPushState("subscribed");
-    })().catch(e => {
-      console.error("[comms] push setup failed", e);
-      toast.error("Notifications setup failed");
-    });
-  }, [session, code, vapidPublicKey]);
+  const pushState: PushState = usePushSubscription({
+    code,
+    vapidPublicKey,
+    ready: session === "ready",
+    onIncoming,
+    onJoinCall,
+  });
 
   // ── In-page ring: if URL has ?join=<code>, show accept prompt / auto-join ──
   useEffect(() => {
@@ -188,11 +151,3 @@ function PushBanner({ state }: { state: "idle" | "subscribed" | "denied" | "unsu
   );
 }
 
-function urlBase64ToUint8Array(base64: string): Uint8Array {
-  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(b64);
-  const out = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-  return out;
-}

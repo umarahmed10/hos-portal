@@ -94,3 +94,51 @@ export function playDisconnected() {
     tone(523, 0.12, 0.04, "sine", 0.12);    // C5
   } catch { /* audio context not available */ }
 }
+
+// Jazzy ringtone — Cmaj7 → Am7 arpeggio loop, pleasant and non-jarring.
+// Returns a stop() callback.
+export function playRingtone(): () => void {
+  let stopped = false;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    const ac = audio();
+
+    const chords = [
+      [261.6, 329.6, 392.0, 493.9],  // Cmaj7: C4 E4 G4 B4
+      [220.0, 261.6, 329.6, 392.0],  // Am7:   A3 C4 E4 G4
+    ];
+
+    let chordIdx = 0;
+
+    const playChord = () => {
+      if (stopped) return;
+      const notes = chords[chordIdx % chords.length];
+      chordIdx++;
+
+      notes.forEach((freq, i) => {
+        const delay = i * 0.055;
+        const osc = ac.createOscillator();
+        const g = ac.createGain();
+        osc.type = i % 2 === 0 ? "sine" : "triangle";
+        osc.frequency.value = freq;
+        const t = ac.currentTime + delay;
+        g.gain.setValueAtTime(0.001, t);
+        g.gain.linearRampToValueAtTime(0.09, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(g).connect(ac.destination);
+        osc.start(t);
+        osc.stop(t + 0.4);
+      });
+
+      timeoutId = setTimeout(playChord, 1600);
+    };
+
+    playChord();
+  } catch { /* audio context not available */ }
+
+  return () => {
+    stopped = true;
+    if (timeoutId !== null) clearTimeout(timeoutId);
+  };
+}

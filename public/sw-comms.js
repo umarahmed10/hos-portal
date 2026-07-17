@@ -70,8 +70,16 @@ self.addEventListener("notificationclick", (event) => {
 
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    // Prefer a comms-test tab, then any portal tab
     for (const client of all) {
       if (client.url.includes(`/comms-test/client/${event.notification.data.code}`)) {
+        client.focus();
+        client.postMessage({ type: "join-call", room: event.notification.data.code });
+        return;
+      }
+    }
+    for (const client of all) {
+      if (client.url.includes("/portal/")) {
         client.focus();
         client.postMessage({ type: "join-call", room: event.notification.data.code });
         return;

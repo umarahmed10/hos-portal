@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { BG, SURF, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
+import { playRingtone } from "@/lib/comms/sounds";
 
 interface Props {
   callerName: string;
@@ -18,28 +19,10 @@ export function IncomingCallModal({ callerName, onAccept, onDecline, expiresAt }
   }, []);
 
   useEffect(() => {
-    // Simple ring tone via WebAudio — no external file needed.
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    let stopped = false;
-    let osc: OscillatorNode | null = null;
-    const ring = () => {
-      if (stopped) return;
-      osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine"; osc.frequency.value = 480;
-      gain.gain.setValueAtTime(0.001, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.05);
-      gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.45);
-      setTimeout(ring, 1200);
-    };
-    ring();
+    const stopRing = playRingtone();
 
-    // Phone vibration loop — same cadence as the ring tone.
-    // Silently no-ops on desktop / iOS Safari (no navigator.vibrate).
     const VIBRATE_PATTERN = [400, 200, 400, 200, 400, 200, 800];
+    let stopped = false;
     const buzz = () => {
       if (stopped) return;
       navigator.vibrate?.(VIBRATE_PATTERN);
@@ -49,10 +32,9 @@ export function IncomingCallModal({ callerName, onAccept, onDecline, expiresAt }
 
     return () => {
       stopped = true;
-      osc?.stop();
+      stopRing();
       clearInterval(vibrateInterval);
       navigator.vibrate?.(0);
-      void ctx.close();
     };
   }, []);
 
