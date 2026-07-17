@@ -9,11 +9,13 @@ import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 type CallEvent = "started" | "ended" | "missed";
 interface CallMeta { event: CallEvent; actor_name: string; duration_sec?: number }
 
+interface Attachment { url: string; filename: string; size: number; type: string }
+
 interface Message {
   id:          string;
   sender_role: "admin" | "client";
   body:        string;
-  kind:        "text" | "call";
+  kind:        "text" | "call" | "attachment";
   meta:        CallMeta | null;
   created_at:  string;
   read_at:     string | null;
@@ -69,7 +71,9 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
   const [optimistic, setOptimistic] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const prevMsgCountRef = useRef(0);
 
   // Data-channel incoming messages
@@ -226,6 +230,56 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
     }
   }, [text, sending, me, code, room, mutate]);
 
+  const uploadFile = useCallback(async (file: File) => {
+    if (uploading) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("code", code);
+      form.append("asRole", me);
+      const uploadRes = await fetch("/api/comms/upload", { method: "POST", body: form });
+      const uploadJson = await uploadRes.json();
+      if (!uploadJson.ok) throw new Error(uploadJson.error || "Upload failed");
+
+      const att: Attachment = uploadJson.data;
+      const body = JSON.stringify(att);
+
+      const optId = `opt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const optMsg: Message = {
+        id: optId, sender_role: me, body, kind: "attachment",
+        meta: null, created_at: new Date().toISOString(), read_at: null,
+      };
+      setOptimistic(prev => [...prev, optMsg]);
+      playSend();
+
+      const msgRes = await fetch("/api/comms/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code, body, asRole: me, kind: "attachment" }),
+      });
+      const msgJson = await msgRes.json();
+      if (msgJson.ok) {
+        const saved: Message = msgJson.data.message;
+        setOptimistic(prev => prev.map(m => m.id === optId ? { ...m, id: saved.id } : m));
+        if (room?.state === "connected") {
+          try {
+            const payload = new TextEncoder().encode(JSON.stringify(saved));
+            void room.localParticipant.publishData(payload, { topic: DATA_CHANNEL_TOPIC, reliable: true });
+          } catch { /* best-effort */ }
+        }
+        void mutate();
+      } else {
+        setOptimistic(prev => prev.filter(m => m.id !== optId));
+      }
+    } catch {
+      // silently fail — toast could be added later
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [uploading, code, me, room, mutate]);
+
   return (
     <div style={{
       background: SURF, border: `1px solid ${BORDER}`, borderRadius: 12,
@@ -267,6 +321,32 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
           const mine = m.sender_role === me;
           const name = nameFor(m.sender_role);
           const isOptimistic = m.id.startsWith("opt-");
+
+          if (m.kind === "attachment") {
+            let att: Attachment | null = null;
+            try { att = JSON.parse(m.body); } catch { /* fallback to text */ }
+            if (att) {
+              return (
+                <div key={m.id} style={{
+                  display: "flex", flexDirection: mine ? "row-reverse" : "row",
+                  alignItems: "flex-end", gap: 8,
+                  opacity: isOptimistic ? 0.55 : 1,
+                  transition: "opacity 300ms ease",
+                }}>
+                  <Avatar name={name} role={m.sender_role} />
+                  <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
+                    <div style={{ fontSize: 10, color: MUTED, margin: "0 4px 3px", display: "flex", gap: 6 }}>
+                      <span style={{ fontWeight: 600, color: mine ? GOLD : TEXT, opacity: 0.85 }}>{name}</span>
+                      <span>{fmtClock(m.created_at)}</span>
+                    </div>
+                    <AttachmentBubble att={att} mine={mine} />
+                    {mine && <ReadReceipt optimistic={isOptimistic} readAt={m.read_at} />}
+                  </div>
+                </div>
+              );
+            }
+          }
+
           return (
             <div key={m.id} style={{
               display: "flex", flexDirection: mine ? "row-reverse" : "row",
@@ -295,7 +375,36 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
         })}
       </div>
 
-      <div style={{ display: "flex", gap: 8, padding: 12, borderTop: `1px solid ${BORDER}` }}>
+      <div style={{ display: "flex", gap: 6, padding: 12, borderTop: `1px solid ${BORDER}`, alignItems: "center" }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+          style={{ display: "none" }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) void uploadFile(f); }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          aria-label="Attach file"
+          title="Attach file"
+          style={{
+            width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+            background: "rgba(243,241,236,0.06)", border: `1px solid ${BORDER}`,
+            color: uploading ? GOLD : MUTED, cursor: uploading ? "wait" : "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          {uploading ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}>
+              <path d="M21 12a9 9 0 11-6.219-8.56" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+            </svg>
+          )}
+        </button>
         <input
           value={text}
           onChange={e => setText(e.target.value)}
@@ -349,6 +458,56 @@ function Avatar({ name, role }: { name: string; role: "admin" | "client" }) {
       fontSize: 10, fontWeight: 700, letterSpacing: "0.02em",
       fontFamily: "var(--font-ui)",
     }}>{initials(name)}</div>
+  );
+}
+
+function fmtSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function AttachmentBubble({ att, mine }: { att: Attachment; mine: boolean }) {
+  const isImage = att.type.startsWith("image/");
+  return (
+    <a
+      href={att.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: "block", textDecoration: "none",
+        background: mine ? GOLD : SURF_2,
+        borderRadius: 10, overflow: "hidden",
+        maxWidth: 240,
+        border: `1px solid ${mine ? "transparent" : BORDER}`,
+      }}
+    >
+      {isImage ? (
+        <img
+          src={att.url}
+          alt={att.filename}
+          style={{ width: "100%", display: "block", maxHeight: 200, objectFit: "cover" }}
+        />
+      ) : (
+        <div style={{
+          padding: "10px 12px", display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={mine ? BG : MUTED} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              fontSize: 12, fontWeight: 600, color: mine ? BG : TEXT,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{att.filename}</div>
+            <div style={{ fontSize: 10, color: mine ? "rgba(0,0,0,0.5)" : MUTED }}>
+              {fmtSize(att.size)}
+            </div>
+          </div>
+        </div>
+      )}
+    </a>
   );
 }
 

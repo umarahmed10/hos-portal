@@ -27,6 +27,7 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   const [error, setError]           = useState<string | null>(null);
   const [muted, setMuted]           = useState(false);
   const [cameraOn, setCameraOn]     = useState(false);
+  const [screenOn, setScreenOn]     = useState(false);
   const [remote, setRemote]         = useState<string | null>(null);
   const [remoteSpeaking, setRemoteSpeaking] = useState(false);
   const [peerName, setPeerName]     = useState<string>(me === "admin" ? "them" : "HOS Team");
@@ -40,6 +41,8 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   // Video track state
   const [localVideoTrack, setLocalVideoTrack] = useState<Track | null>(null);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<Track | null>(null);
+  const [screenTrack, setScreenTrack] = useState<Track | null>(null);
+  const [remoteScreenTrack, setRemoteScreenTrack] = useState<Track | null>(null);
 
   useEffect(() => {
     if (autoJoin) void connect();
@@ -88,7 +91,7 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
         addEvent(`${name} left`, "leave");
         playLeave();
       });
-      room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
+      room.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
         if (track.kind === Track.Kind.Audio) {
           const el = track.attach() as HTMLAudioElement;
           el.autoplay = true;
@@ -97,12 +100,20 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
           document.body.appendChild(el);
         }
         if (track.kind === Track.Kind.Video) {
-          setRemoteVideoTrack(track);
+          if (pub.source === Track.Source.ScreenShare) {
+            setRemoteScreenTrack(track);
+          } else {
+            setRemoteVideoTrack(track);
+          }
         }
       });
-      room.on(RoomEvent.TrackUnsubscribed, (track) => {
+      room.on(RoomEvent.TrackUnsubscribed, (track, pub: RemoteTrackPublication) => {
         if (track.kind === Track.Kind.Video) {
-          setRemoteVideoTrack(prev => prev === track ? null : prev);
+          if (pub.source === Track.Source.ScreenShare) {
+            setRemoteScreenTrack(prev => prev === track ? null : prev);
+          } else {
+            setRemoteVideoTrack(prev => prev === track ? null : prev);
+          }
         }
       });
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
@@ -122,8 +133,11 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
         setState("idle");
         setRemoteSpeaking(false);
         setCameraOn(false);
+        setScreenOn(false);
         setLocalVideoTrack(null);
         setRemoteVideoTrack(null);
+        setScreenTrack(null);
+        setRemoteScreenTrack(null);
         playDisconnected();
         onLeave?.();
       });
@@ -187,8 +201,11 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
     setRemoteJoinedAt(null);
     setRemoteSpeaking(false);
     setCameraOn(false);
+    setScreenOn(false);
     setLocalVideoTrack(null);
     setRemoteVideoTrack(null);
+    setScreenTrack(null);
+    setRemoteScreenTrack(null);
   }
 
   async function toggleMute() {
@@ -215,6 +232,25 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
     }
   }
 
+  async function toggleScreenShare() {
+    const room = roomRef.current;
+    if (!room) return;
+    const next = !screenOn;
+    try {
+      await room.localParticipant.setScreenShareEnabled(next);
+      setScreenOn(next);
+      if (next) {
+        const pub = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+        setScreenTrack(pub?.track ?? null);
+      } else {
+        setScreenTrack(null);
+      }
+    } catch {
+      setScreenOn(false);
+      setScreenTrack(null);
+    }
+  }
+
   const talkStart = remoteJoinedAt ?? startAtRef.current;
   const seconds   = state === "connected" && (elapsedMs || talkStart)
     ? Math.max(0, Math.floor((Date.now() - talkStart) / 1000))
@@ -223,7 +259,7 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
   const ss = String(seconds % 60).padStart(2, "0");
 
   const inCall = state === "connected" || state === "reconnecting";
-  const hasVideo = localVideoTrack || remoteVideoTrack;
+  const hasVideo = localVideoTrack || remoteVideoTrack || screenTrack || remoteScreenTrack;
 
   return (
     <div style={{
@@ -271,8 +307,29 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
               display: "grid",
               gap: 6, marginBottom: 12,
               maxHeight: "50vh",
-              gridTemplateColumns: remoteVideoTrack && localVideoTrack ? "1fr 1fr" : "1fr",
+              gridTemplateColumns: (remoteScreenTrack || screenTrack) ? "1fr" :
+                (remoteVideoTrack && localVideoTrack ? "1fr 1fr" : "1fr"),
             }}>
+              {remoteScreenTrack && (
+                <VideoTile
+                  track={remoteScreenTrack}
+                  name={`${peerName}'s screen`}
+                  isLocal={false}
+                  speaking={false}
+                  muted={false}
+                  isAdmin={false}
+                />
+              )}
+              {screenTrack && (
+                <VideoTile
+                  track={screenTrack}
+                  name="Your screen"
+                  isLocal
+                  speaking={false}
+                  muted={false}
+                  isAdmin={false}
+                />
+              )}
               {remoteVideoTrack && (
                 <VideoTile
                   track={remoteVideoTrack}
@@ -284,25 +341,14 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
                 />
               )}
               {localVideoTrack && (
-                remoteVideoTrack ? (
-                  <VideoTile
-                    track={localVideoTrack}
-                    name={me === "admin" ? "HOS" : "You"}
-                    isLocal
-                    speaking={false}
-                    muted={muted}
-                    isAdmin={me === "admin"}
-                  />
-                ) : (
-                  <VideoTile
-                    track={localVideoTrack}
-                    name={me === "admin" ? "HOS" : "You"}
-                    isLocal
-                    speaking={false}
-                    muted={muted}
-                    isAdmin={me === "admin"}
-                  />
-                )
+                <VideoTile
+                  track={localVideoTrack}
+                  name={me === "admin" ? "HOS" : "You"}
+                  isLocal
+                  speaking={false}
+                  muted={muted}
+                  isAdmin={me === "admin"}
+                />
               )}
             </div>
           ) : (
@@ -375,6 +421,13 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
               label={cameraOn ? "Cam off" : "Cam on"}
               active={cameraOn}
               onClick={toggleCamera}
+              disabled={state === "reconnecting"}
+            />
+            <ControlButton
+              icon={<ScreenShareIcon />}
+              label={screenOn ? "Stop share" : "Share screen"}
+              active={screenOn}
+              onClick={toggleScreenShare}
               disabled={state === "reconnecting"}
             />
             <VolumeControls room={roomRef.current} audioEls={audioElsRef.current} />
@@ -501,6 +554,16 @@ function CameraIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="23 7 16 12 23 17 23 7" />
       <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  );
+}
+
+function ScreenShareIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
     </svg>
   );
 }

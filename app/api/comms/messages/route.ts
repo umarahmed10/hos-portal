@@ -29,6 +29,7 @@ const PostBody = z.object({
   code:   z.string().length(6),
   body:   z.string().min(1).max(4000),
   asRole: Role,
+  kind:   z.enum(["text", "attachment"]).optional(),
 });
 
 export async function POST(req: Request) {
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: "Invalid body" }, { status: 400 });
   }
-  const { code, body, asRole } = parsed.data;
+  const { code, body, asRole, kind } = parsed.data;
 
   const rl = rateLimit(`msg:${code}:${asRole}`, { windowMs: 60_000, max: 30 });
   if (!rl.allowed) {
@@ -47,6 +48,6 @@ export async function POST(req: Request) {
   if (!caller) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  const message = await insertMessage(code.toUpperCase(), asRole, body);
+  const message = await insertMessage(code.toUpperCase(), asRole, body, kind === "attachment" ? "attachment" : "text");
   return NextResponse.json({ ok: true, data: { message } });
 }

@@ -120,12 +120,11 @@ export async function listMessages(docCode: string, limit = 100): Promise<CommsM
 export async function insertMessage(
   docCode:    string,
   senderRole: CommsRole,
-  body:       string
+  body:       string,
+  kind:       "text" | "attachment" = "text",
 ): Promise<CommsMessage> {
-  // `kind` is omitted so this insert also succeeds before the call-history
-  // migration (the DB default fills it in afterwards).
   const client = db();
-  const row = { doc_code: docCode.toUpperCase(), sender_role: senderRole, body };
+  const row = { doc_code: docCode.toUpperCase(), sender_role: senderRole, body, kind };
 
   let { data, error } = await client.from("comms_messages").insert(row).select(MESSAGE_COLUMNS).single();
 
