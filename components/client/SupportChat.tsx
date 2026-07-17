@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { BODY, BORDER, FONT, GREEN, MUTED, SURF, TEXT, css } from "@/lib/styles";
 import { Loader2 } from "@/components/shared/Icons";
+import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 
 interface Message {
   role:    "user" | "assistant";
@@ -81,15 +82,7 @@ export function SupportChat({ clientName }: Props) {
         alignItems:   "center",
         gap:          10,
       }}>
-        <div style={{
-          width: 28, height: 28, borderRadius: "50%",
-          background: "rgba(34,197,94,0.12)",
-          border: "1px solid rgba(34,197,94,0.25)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 13,
-        }}>
-          ◎
-        </div>
+        <HOSTeamAvatar size={28} />
         <div>
           <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: TEXT, letterSpacing: "0.3px" }}>
             HOS SUPPORT

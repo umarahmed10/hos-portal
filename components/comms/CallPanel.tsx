@@ -317,12 +317,17 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
             <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 3 }}>
               {events.map(e => (
                 <div key={e.id} style={{
-                  fontSize: 11, fontFamily: "var(--font-mono)",
-                  color: e.type === "join" ? GREEN : e.type === "leave" ? RED : MUTED,
-                  letterSpacing: "0.03em",
+                  fontSize: 10, fontFamily: "var(--font-mono)",
+                  color: e.type === "join" ? GREEN : e.type === "leave" ? MUTED : MUTED,
+                  letterSpacing: "0.04em",
                   animation: "fadeSlide 300ms ease-out",
+                  display: "flex", alignItems: "center", gap: 6,
                 }}>
-                  {e.type === "join" ? "→" : e.type === "leave" ? "←" : "·"} {e.text}
+                  <span style={{
+                    width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
+                    background: e.type === "join" ? GREEN : e.type === "leave" ? MUTED : "rgba(139,107,62,0.5)",
+                  }} />
+                  {e.text}
                 </div>
               ))}
             </div>
@@ -406,9 +411,13 @@ function ParticipantTile({ name, speaking, muted, isAdmin }: {
           <div style={{
             position: "absolute", bottom: -1, right: -1,
             width: 16, height: 16, borderRadius: "50%",
-            background: RED, display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 9, color: "#fff", fontWeight: 700,
-          }}>✕</div>
+            background: "rgba(201,106,106,0.85)", display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+              <line x1="1" y1="1" x2="23" y2="23" />
+              <path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6" />
+            </svg>
+          </div>
         )}
       </div>
       <div style={{

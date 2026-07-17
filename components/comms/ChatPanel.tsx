@@ -360,30 +360,55 @@ function CallRow({ m, rest }: { m: Message; rest: Message[] }) {
   let icon: string;
   let color: string;
 
+  let iconType: "ended" | "phone" | "missed" | "calling" = "phone";
+
   if (meta.event === "ended") {
     label = `Call ended · ${fmtDuration(meta.duration_sec)}`;
-    icon  = "✓"; color = GREEN;
+    iconType = "ended"; color = GREEN;
   } else {
     const nextStartedIdx = rest.findIndex(r => r.kind === "call" && r.meta?.event === "started");
     const window = nextStartedIdx === -1 ? rest : rest.slice(0, nextStartedIdx);
     const answered = window.some(r => r.kind === "call" && r.meta?.event === "ended");
     const stale = Date.now() - new Date(m.created_at).getTime() > RING_WINDOW_MS;
 
-    if (answered)      { label = `${meta.actor_name} started a call`; icon = "📞"; color = MUTED; }
-    else if (meta.event === "missed" || stale) { label = "Missed call"; icon = "✕"; color = RED; }
-    else               { label = `${meta.actor_name} is calling…`;     icon = "📞"; color = GOLD; }
+    if (answered)      { label = `${meta.actor_name} started a call`; iconType = "phone"; color = MUTED; }
+    else if (meta.event === "missed" || stale) { label = "Missed call"; iconType = "missed"; color = RED; }
+    else               { label = `${meta.actor_name} is calling…`;     iconType = "calling"; color = GOLD; }
   }
 
   return (
     <div style={{
       alignSelf: "center", display: "flex", alignItems: "center", gap: 8,
-      padding: "5px 12px", borderRadius: 20,
+      padding: "6px 14px", borderRadius: 20,
       background: "rgba(255,255,255,0.03)", border: `1px solid ${BORDER}`,
       fontSize: 12, color,
     }}>
-      <span style={{ fontSize: 12 }}>{icon}</span>
+      <CallIcon type={iconType} color={color} />
       <span style={{ fontWeight: 600 }}>{label}</span>
-      <span style={{ color: MUTED, opacity: 0.7 }}>{fmtClock(m.created_at)}</span>
+      <span style={{ color: MUTED, opacity: 0.7, fontSize: 10 }}>{fmtClock(m.created_at)}</span>
     </div>
+  );
+}
+
+function CallIcon({ type, color }: { type: "ended" | "phone" | "missed" | "calling"; color: string }) {
+  if (type === "ended") {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    );
+  }
+  if (type === "missed") {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.42 19.42 0 01-3.33-2.67m-2.67-3.34a19.79 19.79 0 01-3.07-8.63A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91" />
+        <line x1="23" y1="1" x2="1" y2="23" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+    </svg>
   );
 }

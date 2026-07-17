@@ -163,7 +163,9 @@ export default async function PortalInvoicesPage({ params }: Props) {
           borderRadius: 10, padding: "16px 20px", marginTop: 20,
           display: "flex", alignItems: "center", gap: 12,
         }}>
-          <span style={{ fontSize: 20 }}>✓</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
           <div>
             <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 14, color: GREEN }}>
               Payment Received

@@ -16,10 +16,10 @@ export default async function PortalSupportPage({ params }: Props) {
   return (
     <div style={{ animation: "fadeIn 200ms ease-out" }}>
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 10, letterSpacing: "2px", fontWeight: 800, color: MUTED, fontFamily: BODY, marginBottom: 8 }}>
-          SUPPORT
+        <div style={{ fontSize: 10, letterSpacing: "0.14em", fontWeight: 500, color: MUTED, fontFamily: "var(--font-mono)", textTransform: "uppercase", marginBottom: 8 }}>
+          Support
         </div>
-        <h2 style={{ fontFamily: FONT, fontSize: 32, fontWeight: 900, letterSpacing: "-0.5px", color: TEXT, marginBottom: 8 }}>
+        <h2 style={{ fontFamily: FONT, fontSize: 28, fontWeight: 600, letterSpacing: "-0.3px", color: TEXT, marginBottom: 8 }}>
           How can we help?
         </h2>
         <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.7, maxWidth: 520, margin: 0 }}>

@@ -54,11 +54,17 @@ export function IncomingCallModal({ callerName, onAccept, onDecline, expiresAt }
         padding: 36, minWidth: 320, textAlign: "center",
       }}>
         <div style={{
-          width: 72, height: 72, borderRadius: 36, background: GOLD,
+          width: 72, height: 72, borderRadius: 36,
+          background: `radial-gradient(circle, ${GOLD} 0%, rgba(139,107,62,0.7) 100%)`,
           margin: "0 auto 20px", display: "flex", alignItems: "center",
-          justifyContent: "center", fontSize: 32, color: BG,
+          justifyContent: "center", color: BG,
           animation: "pulse 1.4s ease-in-out infinite",
-        }}>📞</div>
+          boxShadow: `0 0 0 0 rgba(139,107,62,0.4)`,
+        }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={BG} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+          </svg>
+        </div>
 
         <div style={{ fontSize: 11, color: MUTED, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 8 }}>
           Incoming call
@@ -78,7 +84,13 @@ export function IncomingCallModal({ callerName, onAccept, onDecline, expiresAt }
           }}>Accept</button>
         </div>
       </div>
-      <style>{`@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }`}</style>
+      <style>{`
+        @keyframes pulse {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139,107,62,0.5); }
+          50% { transform: scale(1.05); box-shadow: 0 0 0 16px rgba(139,107,62,0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139,107,62,0); }
+        }
+      `}</style>
     </div>
   );
 }

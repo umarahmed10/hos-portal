@@ -90,9 +90,13 @@ export function VideoTile({ track, name, isLocal, speaking, muted, isAdmin }: Pr
         <div style={{
           position: "absolute", bottom: 6, right: 8,
           width: 18, height: 18, borderRadius: "50%",
-          background: RED, display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 9, color: "#fff", fontWeight: 700,
-        }}>✕</div>
+          background: "rgba(201,106,106,0.85)", display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+            <line x1="1" y1="1" x2="23" y2="23" />
+            <path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6" />
+          </svg>
+        </div>
       )}
 
       {/* Hidden video element for non-active state */}

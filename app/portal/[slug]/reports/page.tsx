@@ -28,18 +28,21 @@ export default async function PortalReportsPage({ params }: Props) {
 
       <div style={{ ...css.card, padding: "48px 32px", textAlign: "center" }}>
         <div style={{
-          width:      56, height: 56,
+          width: 56, height: 56,
           borderRadius: "50%",
-          border:     "1px solid #1d1d1d",
-          background: "#0d0d0d",
-          display:    "flex", alignItems: "center", justifyContent: "center",
-          margin:     "0 auto 20px",
-          fontSize:   24,
+          border: "1px solid rgba(139,107,62,0.2)",
+          background: "rgba(139,107,62,0.06)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          margin: "0 auto 20px",
         }}>
-          📊
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8B6B3E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
+          </svg>
         </div>
-        <div style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: SUBTLE, marginBottom: 8 }}>
-          COMING SOON
+        <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: SUBTLE, marginBottom: 8, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          Coming Soon
         </div>
         <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.7, maxWidth: 320, margin: "0 auto" }}>
           Your call volume, call durations, qualified call counts, and weekly summaries will show here once your campaign is active.
