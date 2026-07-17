@@ -5,6 +5,7 @@ import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/s
 import { postJSON } from "@/lib/comms/http";
 import { playJoin, playLeave, playConnected, playDisconnected } from "@/lib/comms/sounds";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
+import { VolumeControls } from "@/components/comms/VolumeControls";
 
 interface TokenData { token: string; url: string; room: string; identity: string; peerName?: string }
 
@@ -255,7 +256,7 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 10 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         {!inCall && state !== "connecting" ? (
           <button onClick={connect} style={btnPrimary}>
             {state === "error" ? "Try again" : "Join call"}
@@ -266,6 +267,7 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
               {muted ? "Unmute" : "Mute"}
             </button>
             <button onClick={disconnect} style={btnDanger}>Hang up</button>
+            <VolumeControls room={roomRef.current} audioEls={audioElsRef.current} />
           </>
         )}
       </div>
