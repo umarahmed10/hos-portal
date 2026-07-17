@@ -32,15 +32,16 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
     (c.company?.toLowerCase().includes(search.toLowerCase()) ?? false)
   );
 
-  async function ring(client: Client) {
+  // Ring the client's devices. Called automatically when the admin joins the
+  // voice channel (Discord model: you sit in the call, it rings them) and also
+  // available as a manual "Ring again" if they don't pick up.
+  async function notifyRing(client: Client) {
     setRinging(client.code);
     try {
       const data = await postJSON<{ delivered: number; total: number }>(
         "/api/comms/ring", { code: client.code },
       );
-      toast.success(`Ringing · ${data.delivered}/${data.total} device(s) reached`);
-      setActive(client);
-      setAutoJoin(true);
+      toast.success(`Ringing ${client.name.split(" ")[0]} · ${data.delivered}/${data.total} device(s)`);
     } catch (e) {
       toast.error(`Ring failed: ${(e as Error).message}`);
     } finally {
@@ -217,8 +218,9 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
 
               <div style={{ display: "flex", gap: 6 }}>
                 <button
-                  onClick={() => ring(active)}
+                  onClick={() => notifyRing(active)}
                   disabled={ringing === active.code}
+                  title="Re-ring their devices"
                   style={{
                     padding: "7px 14px", borderRadius: 6,
                     background: "rgba(78,173,135,0.12)", color: GREEN,
@@ -233,7 +235,7 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
                   </svg>
-                  {ringing === active.code ? "Ringing…" : "Ring"}
+                  {ringing === active.code ? "Ringing…" : "Ring again"}
                 </button>
               </div>
             </div>
@@ -243,9 +245,16 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
               flex: 1, display: "flex", flexDirection: "column",
               overflow: "hidden", minHeight: 0,
             }}>
-              {/* Call panel — constrained height, never pushes chat off screen */}
+              {/* Call panel — constrained height, never pushes chat off screen.
+                  Joining the voice channel auto-rings the client (Discord model). */}
               <div style={{ flexShrink: 0, padding: "12px 20px 0", maxHeight: "45vh", overflow: "auto" }}>
-                <CallPanel code={active.code} me="admin" autoJoin={autoJoin} onRoom={setLkRoom} />
+                <CallPanel
+                  code={active.code}
+                  me="admin"
+                  autoJoin={autoJoin}
+                  onRoom={setLkRoom}
+                  onConnected={() => notifyRing(active)}
+                />
               </div>
               {/* Chat panel — always visible, fills remaining space */}
               <div style={{ flex: 1, padding: "12px 20px 20px", minHeight: 250, overflow: "hidden" }}>
