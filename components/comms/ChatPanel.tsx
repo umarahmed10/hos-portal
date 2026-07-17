@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { RoomEvent, type DataPacket_Kind, type Room, type RemoteParticipant } from "livekit-client";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
-import { playSend, playReceive } from "@/lib/comms/sounds";
+import { playSend, playReceive, playUploadComplete } from "@/lib/comms/sounds";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 
 type CallEvent = "started" | "ended" | "missed";
@@ -251,7 +251,7 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
         meta: null, created_at: new Date().toISOString(), read_at: null,
       };
       setOptimistic(prev => [...prev, optMsg]);
-      playSend();
+      playUploadComplete();
 
       const msgRes = await fetch("/api/comms/messages", {
         method: "POST",

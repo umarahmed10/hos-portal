@@ -95,6 +95,48 @@ export function playDisconnected() {
   } catch { /* audio context not available */ }
 }
 
+// Screen share started — bright ascending sweep
+export function playScreenShare() {
+  try {
+    tone(440, 0.06, 0.06, "sine", 0);       // A4
+    tone(660, 0.06, 0.07, "triangle", 0.04); // E5
+    tone(880, 0.10, 0.08, "sine", 0.08);    // A5
+  } catch { /* audio context not available */ }
+}
+
+// Screen share stopped — soft descending sweep
+export function playScreenShareEnd() {
+  try {
+    tone(880, 0.06, 0.05, "sine", 0);       // A5
+    tone(660, 0.06, 0.04, "triangle", 0.04); // E5
+    tone(440, 0.10, 0.03, "sine", 0.08);    // A4
+  } catch { /* audio context not available */ }
+}
+
+// File upload complete — short positive chirp
+export function playUploadComplete() {
+  try {
+    tone(880, 0.05, 0.06, "sine", 0);
+    tone(1047, 0.08, 0.07, "sine", 0.04);   // C6
+  } catch { /* audio context not available */ }
+}
+
+// Mute toggle — subtle click
+export function playMuteToggle() {
+  try {
+    const ac = audio();
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 600;
+    g.gain.setValueAtTime(0.04, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.025);
+    osc.connect(g).connect(ac.destination);
+    osc.start();
+    osc.stop(ac.currentTime + 0.03);
+  } catch { /* audio context not available */ }
+}
+
 // Jazzy ringtone — Cmaj7 → Am7 arpeggio loop, pleasant and non-jarring.
 // Returns a stop() callback.
 export function playRingtone(): () => void {

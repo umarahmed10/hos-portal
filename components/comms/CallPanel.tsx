@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track, LocalAudioTrack, RemoteParticipant, type Participant, type RemoteTrackPublication } from "livekit-client";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 import { postJSON } from "@/lib/comms/http";
-import { playJoin, playLeave, playConnected, playDisconnected } from "@/lib/comms/sounds";
+import { playJoin, playLeave, playConnected, playDisconnected, playScreenShare, playScreenShareEnd, playMuteToggle } from "@/lib/comms/sounds";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 import { VolumeControls } from "@/components/comms/VolumeControls";
 import { VideoTile } from "@/components/comms/VideoTile";
@@ -214,6 +214,7 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
     const pub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
     const track = pub?.track as LocalAudioTrack | undefined;
     if (!track) return;
+    playMuteToggle();
     if (muted) { await track.unmute(); setMuted(false); }
     else       { await track.mute();   setMuted(true);  }
   }
@@ -240,9 +241,11 @@ export function CallPanel({ code, me, autoJoin, onLeave, onRoom }: Props) {
       await room.localParticipant.setScreenShareEnabled(next);
       setScreenOn(next);
       if (next) {
+        playScreenShare();
         const pub = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
         setScreenTrack(pub?.track ?? null);
       } else {
+        playScreenShareEnd();
         setScreenTrack(null);
       }
     } catch {

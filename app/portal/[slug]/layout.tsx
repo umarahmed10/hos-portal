@@ -10,6 +10,7 @@ import { HOSLogo }                 from "@/components/shared/HOSLogo";
 import { FloatingSupport }         from "@/components/client/FloatingSupport";
 import { CommsFAB }                from "@/components/comms/CommsFAB";
 import { IncomingCallListener }    from "@/components/comms/IncomingCallListener";
+import { AvatarPicker }            from "@/components/client/AvatarPicker";
 import { BORDER, BG, MUTED, TEXT } from "@/lib/styles";
 
 interface Props {
@@ -59,8 +60,9 @@ export default async function PortalLayout({ children, params }: Props) {
             </div>
           </div>
 
-          {/* Right — client info + status + logout */}
+          {/* Right — avatar + client info + status + logout */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end", minWidth: 0 }}>
+            <AvatarPicker code={doc.code} name={doc.name} size={32} />
             <div style={{ textAlign: "right", minWidth: 0, maxWidth: 160, overflow: "hidden" }}>
               <div style={{ fontFamily: "var(--font-ui)", fontWeight: 600, fontSize: 13, color: TEXT, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {doc.name}
