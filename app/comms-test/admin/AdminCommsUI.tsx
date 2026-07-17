@@ -198,7 +198,7 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
               padding: "12px 20px",
               borderBottom: `1px solid ${BORDER}`,
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: SURF,
+              background: SURF, flexShrink: 0,
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{
@@ -238,15 +238,17 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
               </div>
             </div>
 
-            {/* Call + Chat area */}
+            {/* Call + Chat — side by side, chat always visible */}
             <div style={{
               flex: 1, display: "flex", flexDirection: "column",
-              overflow: "hidden",
+              overflow: "hidden", minHeight: 0,
             }}>
-              <div style={{ flexShrink: 0, padding: "12px 20px 0" }}>
+              {/* Call panel — constrained height, never pushes chat off screen */}
+              <div style={{ flexShrink: 0, padding: "12px 20px 0", maxHeight: "45vh", overflow: "auto" }}>
                 <CallPanel code={active.code} me="admin" autoJoin={autoJoin} onRoom={setLkRoom} />
               </div>
-              <div style={{ flex: 1, padding: "12px 20px 20px", minHeight: 0 }}>
+              {/* Chat panel — always visible, fills remaining space */}
+              <div style={{ flex: 1, padding: "12px 20px 20px", minHeight: 250, overflow: "hidden" }}>
                 <div style={{ height: "100%" }}>
                   <ChatPanel code={active.code} me="admin" myName="HOS Team" peerName={active.name} room={lkRoom} />
                 </div>

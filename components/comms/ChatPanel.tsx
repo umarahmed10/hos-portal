@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { RoomEvent, type DataPacket_Kind, type Room, type RemoteParticipant } from "livekit-client";
+import { toast } from "sonner";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 import { playSend, playReceive, playUploadComplete } from "@/lib/comms/sounds";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
@@ -272,8 +273,8 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
       } else {
         setOptimistic(prev => prev.filter(m => m.id !== optId));
       }
-    } catch {
-      // silently fail — toast could be added later
+    } catch (err) {
+      toast.error(`Upload failed: ${(err as Error).message || "Something went wrong"}`);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -283,7 +284,7 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
   return (
     <div style={{
       background: SURF, border: `1px solid ${BORDER}`, borderRadius: 12,
-      display: "flex", flexDirection: "column", height: 420,
+      display: "flex", flexDirection: "column", height: "100%", minHeight: 300,
     }}>
       <div style={{
         padding: "12px 16px", borderBottom: `1px solid ${BORDER}`,
@@ -522,7 +523,11 @@ function CallRow({ m, rest }: { m: Message; rest: Message[] }) {
   let iconType: "ended" | "phone" | "missed" | "calling" = "phone";
 
   if (meta.event === "ended") {
-    label = `Call ended · ${fmtDuration(meta.duration_sec)}`;
+    const dur = meta.duration_sec ?? 0;
+    const mins = Math.floor(dur / 60);
+    const secs = dur % 60;
+    const durStr = mins > 0 ? `${mins} minute${mins !== 1 ? "s" : ""}` : `${secs} second${secs !== 1 ? "s" : ""}`;
+    label = `${meta.actor_name} started a call that lasted ${durStr}`;
     iconType = "ended"; color = GREEN;
   } else {
     const nextStartedIdx = rest.findIndex(r => r.kind === "call" && r.meta?.event === "started");

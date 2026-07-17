@@ -1,7 +1,3 @@
-// Minimal Web Audio sound effects for the comms module.
-// All sounds are synthesized — zero external files, zero network requests.
-// Inspired by Discord join/leave tones and Apple notification haptics.
-
 let ctx: AudioContext | null = null;
 
 function audio(): AudioContext {
@@ -27,23 +23,20 @@ function tone(freq: number, duration: number, gain: number, type: OscillatorType
   osc.stop(t + duration);
 }
 
-// Two ascending tones — someone joined the call
 export function playJoin() {
   try {
-    tone(587, 0.12, 0.10, "sine", 0);      // D5
-    tone(784, 0.14, 0.12, "sine", 0.08);    // G5
+    tone(587, 0.12, 0.10, "sine", 0);
+    tone(784, 0.14, 0.12, "sine", 0.08);
   } catch { /* audio context not available */ }
 }
 
-// Two descending tones — someone left the call
 export function playLeave() {
   try {
-    tone(784, 0.12, 0.08, "sine", 0);       // G5
-    tone(523, 0.16, 0.06, "sine", 0.08);    // C5
+    tone(784, 0.12, 0.08, "sine", 0);
+    tone(523, 0.16, 0.06, "sine", 0.08);
   } catch { /* audio context not available */ }
 }
 
-// Short crisp pop — message sent
 export function playSend() {
   try {
     const ac = audio();
@@ -60,7 +53,6 @@ export function playSend() {
   } catch { /* audio context not available */ }
 }
 
-// Soft tap — message received
 export function playReceive() {
   try {
     const ac = audio();
@@ -77,51 +69,45 @@ export function playReceive() {
   } catch { /* audio context not available */ }
 }
 
-// Connected to voice — confirmation chime
 export function playConnected() {
   try {
-    tone(523, 0.08, 0.07, "sine", 0);       // C5
-    tone(659, 0.08, 0.08, "sine", 0.06);    // E5
-    tone(784, 0.12, 0.09, "sine", 0.12);    // G5
+    tone(523, 0.08, 0.07, "sine", 0);
+    tone(659, 0.08, 0.08, "sine", 0.06);
+    tone(784, 0.12, 0.09, "sine", 0.12);
   } catch { /* audio context not available */ }
 }
 
-// Disconnected from voice — descending triplet
 export function playDisconnected() {
   try {
-    tone(784, 0.08, 0.06, "sine", 0);       // G5
-    tone(659, 0.08, 0.05, "sine", 0.06);    // E5
-    tone(523, 0.12, 0.04, "sine", 0.12);    // C5
+    tone(784, 0.08, 0.06, "sine", 0);
+    tone(659, 0.08, 0.05, "sine", 0.06);
+    tone(523, 0.12, 0.04, "sine", 0.12);
   } catch { /* audio context not available */ }
 }
 
-// Screen share started — bright ascending sweep
 export function playScreenShare() {
   try {
-    tone(440, 0.06, 0.06, "sine", 0);       // A4
-    tone(660, 0.06, 0.07, "triangle", 0.04); // E5
-    tone(880, 0.10, 0.08, "sine", 0.08);    // A5
+    tone(440, 0.06, 0.06, "sine", 0);
+    tone(660, 0.06, 0.07, "triangle", 0.04);
+    tone(880, 0.10, 0.08, "sine", 0.08);
   } catch { /* audio context not available */ }
 }
 
-// Screen share stopped — soft descending sweep
 export function playScreenShareEnd() {
   try {
-    tone(880, 0.06, 0.05, "sine", 0);       // A5
-    tone(660, 0.06, 0.04, "triangle", 0.04); // E5
-    tone(440, 0.10, 0.03, "sine", 0.08);    // A4
+    tone(880, 0.06, 0.05, "sine", 0);
+    tone(660, 0.06, 0.04, "triangle", 0.04);
+    tone(440, 0.10, 0.03, "sine", 0.08);
   } catch { /* audio context not available */ }
 }
 
-// File upload complete — short positive chirp
 export function playUploadComplete() {
   try {
     tone(880, 0.05, 0.06, "sine", 0);
-    tone(1047, 0.08, 0.07, "sine", 0.04);   // C6
+    tone(1047, 0.08, 0.07, "sine", 0.04);
   } catch { /* audio context not available */ }
 }
 
-// Mute toggle — subtle click
 export function playMuteToggle() {
   try {
     const ac = audio();
@@ -137,18 +123,26 @@ export function playMuteToggle() {
   } catch { /* audio context not available */ }
 }
 
-// Jazzy ringtone — Cmaj7 → Am7 arpeggio loop, pleasant and non-jarring.
-// Returns a stop() callback.
 export function playRingtone(): () => void {
   let stopped = false;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let activeOscillators: OscillatorNode[] = [];
+
+  function stop() {
+    stopped = true;
+    if (timeoutId !== null) clearTimeout(timeoutId);
+    activeOscillators.forEach(osc => {
+      try { osc.stop(); } catch { /* already stopped */ }
+    });
+    activeOscillators = [];
+  }
 
   try {
     const ac = audio();
 
     const chords = [
-      [261.6, 329.6, 392.0, 493.9],  // Cmaj7: C4 E4 G4 B4
-      [220.0, 261.6, 329.6, 392.0],  // Am7:   A3 C4 E4 G4
+      [523.3, 659.3, 784.0, 987.8],  // Cmaj7: C5 E5 G5 B5
+      [440.0, 523.3, 659.3, 784.0],  // Am7:   A4 C5 E5 G5
     ];
 
     let chordIdx = 0;
@@ -159,28 +153,38 @@ export function playRingtone(): () => void {
       chordIdx++;
 
       notes.forEach((freq, i) => {
-        const delay = i * 0.055;
+        if (stopped) return;
+        const delay = i * 0.06;
         const osc = ac.createOscillator();
         const g = ac.createGain();
         osc.type = i % 2 === 0 ? "sine" : "triangle";
         osc.frequency.value = freq;
         const t = ac.currentTime + delay;
         g.gain.setValueAtTime(0.001, t);
-        g.gain.linearRampToValueAtTime(0.09, t + 0.03);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        g.gain.linearRampToValueAtTime(0.18, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
         osc.connect(g).connect(ac.destination);
         osc.start(t);
-        osc.stop(t + 0.4);
+        osc.stop(t + 0.5);
+        activeOscillators.push(osc);
+        osc.onended = () => {
+          activeOscillators = activeOscillators.filter(o => o !== osc);
+        };
       });
 
-      timeoutId = setTimeout(playChord, 1600);
+      timeoutId = setTimeout(playChord, 1400);
     };
 
     playChord();
   } catch { /* audio context not available */ }
 
-  return () => {
-    stopped = true;
-    if (timeoutId !== null) clearTimeout(timeoutId);
-  };
+  return stop;
+}
+
+export function playIncomingPing() {
+  try {
+    tone(880, 0.08, 0.12, "sine", 0);
+    tone(1047, 0.08, 0.14, "sine", 0.06);
+    tone(1319, 0.12, 0.10, "sine", 0.12);
+  } catch { /* audio context not available */ }
 }

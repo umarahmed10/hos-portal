@@ -50,10 +50,14 @@ export function VideoTile({ track, name, isLocal, speaking, muted, isAdmin }: Pr
           autoPlay
           playsInline
           muted={isLocal}
+          controls={false}
+          disablePictureInPicture
+          onContextMenu={e => e.preventDefault()}
           style={{
             width: "100%", height: "100%", objectFit: "cover",
             transform: isLocal ? "scaleX(-1)" : undefined,
             display: "block",
+            pointerEvents: "none", // no accidental pause/scrub on the tile
           }}
         />
       ) : (

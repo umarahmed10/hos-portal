@@ -1,10 +1,11 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Room } from "livekit-client";
 import { CallPanel }          from "@/components/comms/CallPanel";
 import { ChatPanel }          from "@/components/comms/ChatPanel";
 import { IncomingCallModal }  from "@/components/comms/IncomingCallModal";
+import { HOSTeamAvatar }      from "@/components/comms/HOSTeamAvatar";
 import { usePushSubscription, type PushState } from "@/lib/comms/usePushSubscription";
 import { BG, SURF, BORDER, TEXT, MUTED, GOLD, GREEN } from "@/lib/styles";
 
@@ -17,13 +18,13 @@ interface Props {
 type SessionState = "checking" | "unauth" | "ready";
 
 export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
+  const router = useRouter();
   const search = useSearchParams();
   const [session, setSession] = useState<SessionState>("checking");
   const [incoming, setIncoming] = useState<{ caller: string; expiresAt: number } | null>(null);
   const [inCall, setInCall] = useState(false);
   const [lkRoom, setLkRoom] = useState<Room | null>(null);
 
-  // ── Establish portal session (uses code as credential for the test module) ──
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -55,7 +56,6 @@ export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
     onJoinCall,
   });
 
-  // ── In-page ring: if URL has ?join=<code>, show accept prompt / auto-join ──
   useEffect(() => {
     if (session !== "ready") return;
     const join = search.get("join");
@@ -65,34 +65,82 @@ export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
   }, [search, session, code]);
 
   if (session === "checking") {
-    return <Full>Verifying access…</Full>;
+    return (
+      <div style={{
+        background: BG, color: TEXT, minHeight: "100vh",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexDirection: "column", gap: 14,
+      }}>
+        <div style={{ position: "relative", width: 48, height: 48 }}>
+          <svg width="48" height="48" viewBox="0 0 48 48" style={{ animation: "spin 1s linear infinite" }}>
+            <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(243,241,236,0.08)" strokeWidth="3" />
+            <circle cx="24" cy="24" r="20" fill="none" stroke={GOLD} strokeWidth="3"
+              strokeDasharray="100" strokeDashoffset="75" strokeLinecap="round" />
+          </svg>
+        </div>
+        <div style={{ fontSize: 13, color: MUTED, fontFamily: "var(--font-body)" }}>Verifying access…</div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
   }
   if (session === "unauth") {
-    return <Full>Access denied for code <code style={{ fontFamily: "var(--font-mono)" }}>{code}</code>.</Full>;
+    return (
+      <div style={{
+        background: BG, color: TEXT, minHeight: "100vh",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "var(--font-body)", fontSize: 14, padding: 24, textAlign: "center",
+      }}>Access denied for code <code style={{ fontFamily: "var(--font-mono)" }}>{code}</code>.</div>
+    );
   }
 
   return (
-    <div style={{ background: BG, minHeight: "100vh", color: TEXT, padding: 24 }}>
-      <div style={{ maxWidth: 640, margin: "0 auto" }}>
-        <div style={{ fontSize: 11, color: MUTED, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 6 }}>
-          HOS · Direct Line
+    <div style={{ background: BG, minHeight: "100vh", color: TEXT, display: "flex", flexDirection: "column" }}>
+      {/* Top bar — Discord-style header */}
+      <div style={{
+        padding: "12px 16px", borderBottom: `1px solid ${BORDER}`,
+        display: "flex", alignItems: "center", gap: 10,
+        background: SURF, flexShrink: 0,
+      }}>
+        <button
+          onClick={() => {
+            const slug = code.toLowerCase();
+            router.push(`/portal/${slug}`);
+          }}
+          aria-label="Back to portal"
+          title="Back to portal"
+          style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: "rgba(243,241,236,0.06)", border: `1px solid ${BORDER}`,
+            color: MUTED, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0, transition: "background 120ms ease",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(243,241,236,0.12)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(243,241,236,0.06)"; }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <HOSTeamAvatar size={28} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, fontFamily: "var(--font-ui)" }}>HOS Team</div>
+          <div style={{ fontSize: 10, color: MUTED, fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>Direct Line</div>
         </div>
-        <h1 style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontWeight: 400, fontSize: 34, margin: "0 0 6px" }}>
-          Hi {clientName.split(" ")[0]}.
-        </h1>
-        <p style={{ color: MUTED, fontSize: 14, marginBottom: 24 }}>
-          Call or message the team any time — free, no phone charges.
-        </p>
+        <PushDot state={pushState} />
+      </div>
 
-        <PushBanner state={pushState} />
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
+      {/* Main content — call + chat, always accessible */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", maxWidth: 640, margin: "0 auto", width: "100%" }}>
+        {/* Call panel — compact, constrained */}
+        <div style={{ flexShrink: 0, padding: "12px 16px 0", maxHeight: "45vh", overflow: "auto" }}>
           <CallPanel code={code} me="client" autoJoin={inCall} onLeave={() => setInCall(false)} onRoom={setLkRoom} />
-          <ChatPanel code={code} me="client" myName={clientName} peerName="HOS Team" room={lkRoom} />
         </div>
-
-        <div style={{ marginTop: 24, fontSize: 11, color: MUTED, textAlign: "center", opacity: 0.6 }}>
-          For the best experience, add this page to your home screen (Share → Add to Home Screen on iPhone).
+        {/* Chat panel — fills remaining space */}
+        <div style={{ flex: 1, padding: "12px 16px 16px", minHeight: 250, overflow: "hidden" }}>
+          <div style={{ height: "100%" }}>
+            <ChatPanel code={code} me="client" myName={clientName} peerName="HOS Team" room={lkRoom} />
+          </div>
         </div>
       </div>
 
@@ -108,46 +156,20 @@ export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
   );
 }
 
-function Full({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      background: BG, color: TEXT, minHeight: "100vh",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "var(--font-body)", fontSize: 14, padding: 24, textAlign: "center",
-    }}>{children}</div>
-  );
-}
-
-function PushBanner({ state }: { state: "idle" | "subscribed" | "denied" | "unsupported" }) {
+function PushDot({ state }: { state: PushState }) {
   if (state === "subscribed") {
     return (
-      <div style={{
-        padding: "10px 14px", borderRadius: 8, fontSize: 12,
-        background: "rgba(78,173,135,0.09)", border: `1px solid rgba(78,173,135,0.22)`, color: GREEN,
-      }}>✓ Notifications on — you&apos;ll ring when the team calls.</div>
+      <div title="Notifications active" style={{
+        width: 8, height: 8, borderRadius: "50%", background: GREEN, flexShrink: 0,
+      }} />
     );
   }
   if (state === "denied") {
     return (
-      <div style={{
-        padding: "10px 14px", borderRadius: 8, fontSize: 12,
-        background: "rgba(201,106,106,0.10)", border: `1px solid rgba(201,106,106,0.3)`, color: "#C96A6A",
-      }}>Notifications are blocked. Enable them in your browser settings to receive calls.</div>
+      <div title="Notifications blocked" style={{
+        width: 8, height: 8, borderRadius: "50%", background: "#C96A6A", flexShrink: 0,
+      }} />
     );
   }
-  if (state === "unsupported") {
-    return (
-      <div style={{
-        padding: "10px 14px", borderRadius: 8, fontSize: 12,
-        background: SURF, border: `1px solid ${BORDER}`, color: MUTED,
-      }}>This browser can&apos;t receive incoming call notifications. Keep this tab open.</div>
-    );
-  }
-  return (
-    <div style={{
-      padding: "10px 14px", borderRadius: 8, fontSize: 12,
-      background: "rgba(139,107,62,0.09)", border: `1px solid rgba(139,107,62,0.22)`, color: GOLD,
-    }}>Setting up notifications…</div>
-  );
+  return null;
 }
-
