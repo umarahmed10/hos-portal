@@ -36,6 +36,7 @@ const RING_WINDOW_MS = 35_000;
 const GROUP_WINDOW_MS = 5 * 60_000; // group consecutive same-sender messages within 5 min
 const DATA_CHANNEL_TOPIC = "chat";
 const READ_RECEIPT_TOPIC = "read-receipt";
+const TYPING_TOPIC = "typing";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -82,6 +83,9 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
   const prevMsgCountRef = useRef(0);
 
   const [dcMessages, setDcMessages] = useState<Message[]>([]);
+  const [peerTyping, setPeerTyping] = useState(false);
+  const peerTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef(0);
 
   const messages = useMemo(() => {
     const serverIds = new Set(serverMessages.map(m => m.id));
@@ -166,6 +170,13 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
             messageIds.includes(m.id) && !m.read_at ? { ...m, read_at: now } : m
           ));
         } catch { /* ignore */ }
+        return;
+      }
+
+      if (topic === TYPING_TOPIC) {
+        setPeerTyping(true);
+        if (peerTypingTimer.current) clearTimeout(peerTypingTimer.current);
+        peerTypingTimer.current = setTimeout(() => setPeerTyping(false), 3500);
       }
     };
 
@@ -345,6 +356,17 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
         })}
       </div>
 
+      {peerTyping && (
+        <div style={{ padding: "4px 16px 0", height: 18, fontSize: 11, color: MUTED, fontStyle: "italic", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <span style={{ display: "inline-flex", gap: 2 }}>
+            {[0, 1, 2].map(i => (
+              <span key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: MUTED, animation: `typingDot 1.2s ease-in-out ${i * 0.18}s infinite` }} />
+            ))}
+          </span>
+          {peerName} is typing…
+          <style>{`@keyframes typingDot { 0%,60%,100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }`}</style>
+        </div>
+      )}
       <div style={{ display: "flex", gap: 6, padding: 12, borderTop: `1px solid ${BORDER}`, alignItems: "center", flexShrink: 0 }}>
         <input
           ref={fileInputRef}
@@ -377,7 +399,14 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
         </button>
         <input
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={e => {
+            setText(e.target.value);
+            // Broadcast a typing ping over the in-call data channel (throttled).
+            if (room?.state === "connected" && Date.now() - lastTypingSentRef.current > 1500) {
+              lastTypingSentRef.current = Date.now();
+              try { void room.localParticipant.publishData(new TextEncoder().encode("1"), { topic: TYPING_TOPIC, reliable: false }); } catch { /* best-effort */ }
+            }
+          }}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
           enterKeyHint="send"
           placeholder="Type a message…"
