@@ -1,9 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
-import type { Room } from "livekit-client";
-import { CallPanel } from "@/components/comms/CallPanel";
-import { ChatPanel } from "@/components/comms/ChatPanel";
-import { BG, SURF, BORDER, TEXT, MUTED } from "@/lib/styles";
+import { useEffect } from "react";
+import { CommsWorkspace } from "@/components/comms/CommsWorkspace";
+import { BG, BORDER, TEXT, MUTED } from "@/lib/styles";
 
 interface Props {
   code: string;
@@ -12,8 +10,6 @@ interface Props {
 }
 
 export function CommsCallOverlay({ code, clientName, onClose }: Props) {
-  const [lkRoom, setLkRoom] = useState<Room | null>(null);
-
   // Notify CommsFAB about call state
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("comms-call-state", { detail: { active: true } }));
@@ -30,7 +26,7 @@ export function CommsCallOverlay({ code, clientName, onClose }: Props) {
       padding: 16,
     }}>
       <div style={{
-        width: "100%", maxWidth: 560, maxHeight: "90vh",
+        width: "100%", maxWidth: 1000, height: "90vh",
         background: BG, border: `1px solid ${BORDER}`, borderRadius: 16,
         display: "flex", flexDirection: "column", overflow: "hidden",
       }}>
@@ -65,24 +61,15 @@ export function CommsCallOverlay({ code, clientName, onClose }: Props) {
           </button>
         </div>
 
-        {/* Call + Chat */}
-        <div style={{
-          flex: 1, overflowY: "auto", padding: 16,
-          display: "flex", flexDirection: "column", gap: 16,
-        }}>
-          <CallPanel
-            code={code}
-            me="client"
-            autoJoin
-            onLeave={onClose}
-            onRoom={setLkRoom}
-          />
-          <ChatPanel
+        {/* Discord-style workspace */}
+        <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+          <CommsWorkspace
             code={code}
             me="client"
             myName={clientName}
             peerName="HOS Team"
-            room={lkRoom}
+            autoJoin
+            onLeave={onClose}
           />
         </div>
       </div>

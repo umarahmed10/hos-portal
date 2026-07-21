@@ -1,9 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Room } from "livekit-client";
-import { CallPanel }          from "@/components/comms/CallPanel";
-import { ChatPanel }          from "@/components/comms/ChatPanel";
+import { CommsWorkspace }     from "@/components/comms/CommsWorkspace";
 import { IncomingCallModal }  from "@/components/comms/IncomingCallModal";
 import { HOSTeamAvatar }      from "@/components/comms/HOSTeamAvatar";
 import { usePushSubscription, type PushState } from "@/lib/comms/usePushSubscription";
@@ -24,7 +22,6 @@ export function ClientCommsUI({ code, clientName, slug, vapidPublicKey }: Props)
   const [session, setSession] = useState<SessionState>("checking");
   const [incoming, setIncoming] = useState<{ caller: string; expiresAt: number } | null>(null);
   const [inCall, setInCall] = useState(false);
-  const [lkRoom, setLkRoom] = useState<Room | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,18 +130,16 @@ export function ClientCommsUI({ code, clientName, slug, vapidPublicKey }: Props)
         <PushDot state={pushState} />
       </div>
 
-      {/* Main content — call + chat, always accessible */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", maxWidth: 900, margin: "0 auto", width: "100%" }}>
-        {/* Call panel — compact, constrained */}
-        <div style={{ flexShrink: 0, padding: "12px 16px 0", maxHeight: "45vh", overflow: "auto" }}>
-          <CallPanel code={code} me="client" autoJoin={inCall} onLeave={() => setInCall(false)} onRoom={setLkRoom} />
-        </div>
-        {/* Chat panel — fills remaining space */}
-        <div style={{ flex: 1, padding: "12px 16px 16px", minHeight: 250, overflow: "hidden" }}>
-          <div style={{ height: "100%" }}>
-            <ChatPanel code={code} me="client" myName={clientName} peerName="HOS Team" room={lkRoom} />
-          </div>
-        </div>
+      {/* Discord-style comms workspace — call stage + chat rail */}
+      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+        <CommsWorkspace
+          code={code}
+          me="client"
+          myName={clientName}
+          peerName="HOS Team"
+          autoJoin={inCall}
+          onLeave={() => setInCall(false)}
+        />
       </div>
 
       {incoming && !inCall && (

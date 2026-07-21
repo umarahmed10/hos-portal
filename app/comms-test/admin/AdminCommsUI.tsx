@@ -2,9 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import type { Room } from "livekit-client";
-import { CallPanel } from "@/components/comms/CallPanel";
-import { ChatPanel } from "@/components/comms/ChatPanel";
+import { CommsWorkspace } from "@/components/comms/CommsWorkspace";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 import { postJSON } from "@/lib/comms/http";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, SUBTLE } from "@/lib/styles";
@@ -23,7 +21,6 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
   const [active, setActive] = useState<Client | null>(null);
   const [autoJoin, setAutoJoin] = useState(false);
   const [ringing, setRinging] = useState<string | null>(null);
-  const [lkRoom, setLkRoom] = useState<Room | null>(null);
   const [search, setSearch] = useState("");
 
   const filtered = clients.filter(c =>
@@ -240,28 +237,18 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
               </div>
             </div>
 
-            {/* Call + Chat — side by side, chat always visible */}
-            <div style={{
-              flex: 1, display: "flex", flexDirection: "column",
-              overflow: "hidden", minHeight: 0,
-            }}>
-              {/* Call panel — constrained height, never pushes chat off screen.
-                  Joining the voice channel auto-rings the client (Discord model). */}
-              <div style={{ flexShrink: 0, padding: "12px 20px 0", maxHeight: "45vh", overflow: "auto" }}>
-                <CallPanel
-                  code={active.code}
-                  me="admin"
-                  autoJoin={autoJoin}
-                  onRoom={setLkRoom}
-                  onConnected={() => notifyRing(active)}
-                />
-              </div>
-              {/* Chat panel — always visible, fills remaining space */}
-              <div style={{ flex: 1, padding: "12px 20px 20px", minHeight: 250, overflow: "hidden" }}>
-                <div style={{ height: "100%" }}>
-                  <ChatPanel code={active.code} me="admin" myName="HOS Team" peerName={active.name} room={lkRoom} />
-                </div>
-              </div>
+            {/* Discord-style workspace — call stage + chat rail.
+                Joining the voice channel auto-rings the client (Discord model). */}
+            <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+              <CommsWorkspace
+                key={active.code}
+                code={active.code}
+                me="admin"
+                myName="HOS Team"
+                peerName={active.name}
+                autoJoin={autoJoin}
+                onConnected={() => notifyRing(active)}
+              />
             </div>
           </>
         )}
