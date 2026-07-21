@@ -152,7 +152,7 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
           <div style={{ opacity: controlsVisible ? 1 : 0, transition: "opacity 300ms", pointerEvents: controlsVisible ? "auto" : "none" }}>
             {stageHeader}
           </div>
-          <CallStage call={call} me={me} />
+          <CallStage call={call} me={me} myName={myName} />
           <div style={{
             opacity: controlsVisible ? 1 : 0, transition: "opacity 300ms",
             pointerEvents: controlsVisible ? "auto" : "none",
@@ -170,13 +170,14 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
     );
   }
 
-  // ── In-call: stage + chat rail ──
-  if (inCall) {
+  // ── In-call (and connecting): stage + chat rail. Showing the stage the instant
+  // you accept/start — instead of flashing the idle chat — makes pickup feel fast.
+  if (inCall || state === "connecting") {
     return (
       <div className="comms-ws" style={{ flex: 1, width: "100%", minWidth: 0, display: "flex", height: "100%", minHeight: 0, background: "#0A0A0A" }}>
         <div className="comms-ws-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           {stageHeader}
-          <CallStage call={call} me={me} />
+          <CallStage call={call} me={me} myName={myName} />
           <div style={{ flexShrink: 0, background: "#0A0A0A" }}>
             {controlBar}
           </div>
@@ -284,12 +285,6 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
         </button>
       </div>
       {error && <div style={{ fontSize: 12, color: RED, padding: "8px 16px" }}>{error}</div>}
-      {state === "connecting" && (
-        <div style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: 10, color: MUTED, fontSize: 12 }}>
-          <span style={{ width: 14, height: 14, border: `2px solid ${BORDER}`, borderTopColor: GREEN, borderRadius: "50%", display: "inline-block", animation: "spin 1s linear infinite" }} />
-          RTC Connecting…
-        </div>
-      )}
       <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex" }}>
         {chat}
       </div>

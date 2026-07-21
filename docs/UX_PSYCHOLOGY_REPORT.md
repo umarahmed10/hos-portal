@@ -203,3 +203,70 @@ The system (matte black `#111`, bone white `#F3F1EC`, deep bronze `#8B6B3E` at
 Everything above is in service of one sentence the client should be able to say after
 five minutes in the portal: *"These people are serious, they're measuring my money,
 and I can reach a real person instantly. My calendar is going to fill."*
+
+---
+
+## 7. Behavioral Psychology Layer (offensive) — beyond reassurance
+
+Sections 0–6 are **defensive**: they reduce a skeptic's anxiety. That gets us to
+"safe." The next tier is **offensive**: make the owner feel *powerful, understood,
+and reluctant to ever leave*. Defensive keeps the client; offensive makes firing us
+feel like downgrading their own business. Ten shifts:
+
+1. **Reduce anxiety → maximize confidence.** Skeletons and count-ups say "not
+   broken." Stripe/Linear/Apple Wallet go further — they make you feel *capable*.
+   Target feeling on dashboard open: *"These guys have this completely handled."*
+2. **Perceived intelligence — the system should appear to *think*.** People trust
+   software that volunteers judgment. On open, surface an unprompted read:
+   *"Yesterday: 8 qualified calls · ~$3,850 revenue · cost/booked-job improved 17% ·
+   Tuesday mornings keep outperforming Fridays."* Nobody asked. That's intelligence.
+3. **Anticipation — answer before they ask.** Not "Qualified Calls: 18" but
+   *"Outperforming last month by 14%"* or *"Expect lighter volume tomorrow (seasonal)."*
+   Data → foresight.
+4. **Authority / hierarchy.** Everything is currently weighted equally. One thing —
+   **Revenue Generated** — should be an untouchable hero; the owner should know what
+   matters in <0.5s. (The ROI hero + count-up is the start; push it further.)
+5. **Ownership psychology.** Not "HOS's dashboard" — *"Mike's Plumbing Growth Center."*
+   Label metrics "My Calls / My Campaign / My Revenue." Ownership → attachment.
+6. **Temporal psychology — the portal ages with the relationship.** Day 1 "We're
+   launching." Day 5 "First calls arriving." Day 30 "Here's what we've learned."
+   Month 6 "Here's how your business changed." Same screen, different soul over time.
+7. **Memory — manufacture ceremonies.** Humans remember firsts, peaks, lasts. Make
+   each a small moment: first booked call, first booked job, first ROI-positive month,
+   highest-revenue month, 100th lead. (Extends the peak-end signing ceremony.)
+8. **Habit formation — never static.** People compulsively check Discord/TradingView
+   because a refresh *might* contain something new. The dashboard should always hold
+   one new insight / one changed metric / one recommendation / one unread message /
+   one trend. A static dashboard dies psychologically.
+9. **Status signaling — professional, not gamified.** *"Campaign Status: Performing
+   Above Market"* / *"Optimization Level: Elite."* Contractors love competence *and*
+   progression; make them feel part of something operating at a high standard.
+10. **Identity design (the biggest lever).** Don't just say "HOS is competent." Make
+    the portal quietly tell the owner: *"You are the kind of operator who measures
+    revenue instead of hoping for it — you run a professional business."* People stay
+    loyal to tools that affirm who they want to be.
+
+### The six behavioral questions (design gate for every screen)
+- What emotion should the user feel within **2 seconds**?
+- What belief should they hold after **30 seconds**?
+- What identity should they leave with after **5 minutes**?
+- What makes them want to come back **tomorrow**?
+- What makes them **proud to show this to another contractor**?
+- What makes firing HOS feel like **losing part of how they run the business**?
+
+### How this reshapes the build (offensive backlog)
+- **"Daily read" insight strip** at the top of the dashboard: 2–3 system-generated
+  sentences (yesterday's results, a trend, a forward-looking note). This single
+  feature delivers #2, #3, and #8 at once — the highest-leverage offensive move.
+- **Personalize + own the frame:** company-named header ("{Company} Growth Center"),
+  "My …" metric labels (#5, #10).
+- **Status chip** ("Performing Above Market / Elite") near the ROI hero (#9).
+- **Milestone ceremonies** fired on firsts/peaks (#7) — reuse the signing-celebration
+  motion budget.
+- **Temporal framing** driven off days-since-launch (#6): the campaign-status copy
+  already varies by state; extend it along the *timeline*.
+
+**Net:** Sections 0–6 make the client feel *safe*. Section 7 makes them feel
+*powerful and understood* — and turns the portal from a status page into the place
+they run their growth from. That shift — from reducing uncertainty to augmenting the
+owner's judgment — is where premium B2B earns its price.

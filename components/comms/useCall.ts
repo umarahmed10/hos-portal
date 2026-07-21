@@ -5,7 +5,7 @@
 // share one call model.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Room, RoomEvent, Track, VideoPresets, ConnectionQuality,
+  Room, RoomEvent, Track, VideoPresets, AudioPresets, ConnectionQuality,
   LocalAudioTrack, RemoteParticipant,
   type Participant, type RemoteTrackPublication, type LocalTrackPublication,
 } from "livekit-client";
@@ -128,12 +128,17 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
         adaptiveStream: true,
         dynacast: true,
         videoCaptureDefaults: { resolution: VideoPresets.h1080.resolution },
+        audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         publishDefaults: {
           videoSimulcastLayers: [VideoPresets.h360, VideoPresets.h720, VideoPresets.h1080],
           videoCodec: "vp8",
+          // Rich audio (music-grade Opus) instead of low speech bitrate — sharper
+          // voices and usable shared system/tab audio.
+          audioPreset: AudioPresets.musicHighQuality,
           dtx: true,
           red: true,
-          screenShareEncoding: { maxBitrate: 4_000_000, maxFramerate: 30 },
+          // High-quality screen share for crisp text/dashboards.
+          screenShareEncoding: { maxBitrate: 8_000_000, maxFramerate: 30 },
         },
       });
       roomRef.current = room;
@@ -289,7 +294,8 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
     const next = !screenOn;
     try {
       await room.localParticipant.setScreenShareEnabled(next, {
-        resolution: VideoPresets.h1080.resolution,
+        audio: true,                          // share system / tab audio too
+        resolution: VideoPresets.h1440.resolution, // crisp text at 1440p
         contentHint: "detail",
       });
       setScreenOn(next);

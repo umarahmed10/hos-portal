@@ -12,7 +12,7 @@ import { TEXT, MUTED, GREEN, GOLD, RED } from "@/lib/styles";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 import type { CallApi } from "@/components/comms/useCall";
 
-interface Props { call: CallApi; me: "admin" | "client" }
+interface Props { call: CallApi; me: "admin" | "client"; myName: string }
 
 interface P {
   key: string; name: string; isAdmin: boolean;
@@ -50,14 +50,14 @@ function StreamVideo({ track, fit, mirror }: { track: Track; fit: "cover" | "con
   );
 }
 
-export function CallStage({ call, me }: Props) {
+export function CallStage({ call, me, myName }: Props) {
   const {
     localVideoTrack, remoteVideoTrack, screenTrack, remoteScreenTrack,
     remoteSpeaking, localSpeaking, muted, peerName, remote,
     localQuality, remoteQuality,
   } = call;
 
-  const meName = me === "admin" ? "HOS Team" : "You";
+  const meName = myName;
   const local: P = { key: "local", name: meName, isAdmin: me === "admin", camera: localVideoTrack, speaking: localSpeaking, muted, mirror: true, quality: localQuality, you: true };
   const remoteP: P | null = remote
     ? { key: "remote", name: peerName, isAdmin: me !== "admin", camera: remoteVideoTrack, speaking: remoteSpeaking, muted: false, mirror: false, quality: remoteQuality }
