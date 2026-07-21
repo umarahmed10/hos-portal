@@ -140,42 +140,45 @@ export function playRingtone(): () => void {
   try {
     const ac = audio();
 
-    const chords = [
-      [523.3, 659.3, 784.0, 987.8],  // Cmaj7: C5 E5 G5 B5
-      [440.0, 523.3, 659.3, 784.0],  // Am7:   A4 C5 E5 G5
-    ];
-
-    let chordIdx = 0;
-
-    const playChord = () => {
+    // Warm bell voice: fundamental + soft harmonics + a light delayed shimmer,
+    // gentle attack, long exponential tail — reads as premium/luxurious, not buzzy.
+    const bell = (freq: number, at: number, dur: number, gain: number) => {
       if (stopped) return;
-      const notes = chords[chordIdx % chords.length];
-      chordIdx++;
-
-      notes.forEach((freq, i) => {
-        if (stopped) return;
-        const delay = i * 0.06;
+      // Harmonic stack (1st strong, 2nd/3rd soft) for a rounded chime timbre.
+      const harmonics: [number, number][] = [[1, 1], [2, 0.28], [3, 0.1], [4.01, 0.05]];
+      harmonics.forEach(([mult, amp]) => {
         const osc = ac.createOscillator();
         const g = ac.createGain();
-        osc.type = i % 2 === 0 ? "sine" : "triangle";
-        osc.frequency.value = freq;
-        const t = ac.currentTime + delay;
-        g.gain.setValueAtTime(0.001, t);
-        g.gain.linearRampToValueAtTime(0.18, t + 0.03);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+        osc.type = "sine";
+        osc.frequency.value = freq * mult;
+        const peak = gain * amp;
+        g.gain.setValueAtTime(0.0001, at);
+        g.gain.exponentialRampToValueAtTime(peak, at + 0.014);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
         osc.connect(g).connect(ac.destination);
-        osc.start(t);
-        osc.stop(t + 0.5);
+        osc.start(at);
+        osc.stop(at + dur + 0.05);
         activeOscillators.push(osc);
-        osc.onended = () => {
-          activeOscillators = activeOscillators.filter(o => o !== osc);
-        };
+        osc.onended = () => { activeOscillators = activeOscillators.filter(o => o !== osc); };
       });
-
-      timeoutId = setTimeout(playChord, 1400);
     };
 
-    playChord();
+    // Catchy motif — a warm rising phrase that resolves. E5 · G5 · B5 → A5.
+    const motif: [number, number, number, number][] = [
+      [659.3, 0.00, 1.0, 0.16],  // E5
+      [784.0, 0.18, 1.0, 0.16],  // G5
+      [987.8, 0.36, 1.3, 0.17],  // B5
+      [880.0, 0.66, 1.6, 0.13],  // A5 — resolve, longer tail
+    ];
+
+    const play = () => {
+      if (stopped) return;
+      const t0 = ac.currentTime + 0.02;
+      motif.forEach(([f, d, dur, g]) => bell(f, t0 + d, dur, g));
+      timeoutId = setTimeout(play, 2600); // spacious, non-nagging cadence
+    };
+
+    play();
   } catch { /* audio context not available */ }
 
   return stop;

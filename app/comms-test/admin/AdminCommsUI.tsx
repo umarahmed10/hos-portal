@@ -21,6 +21,7 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
   const [active, setActive] = useState<Client | null>(null);
   const [autoJoin, setAutoJoin] = useState(false);
   const [search, setSearch] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const filtered = clients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -49,11 +50,12 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
   return (
     <div style={{ display: "flex", height: "100vh", background: BG, color: TEXT }}>
 
-      {/* ── Sidebar: client list ── */}
+      {/* ── Sidebar: client list (collapsible) ── */}
       <div style={{
-        width: 280, flexShrink: 0,
-        background: SURF, borderRight: `1px solid ${BORDER}`,
+        width: sidebarOpen ? 280 : 0, flexShrink: 0, overflow: "hidden",
+        background: SURF, borderRight: sidebarOpen ? `1px solid ${BORDER}` : "none",
         display: "flex", flexDirection: "column",
+        transition: "width 200ms ease",
       }}>
         {/* Sidebar header */}
         <div style={{
@@ -85,6 +87,20 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
             <span style={{
               fontFamily: "var(--font-ui)", fontSize: 13, fontWeight: 600, color: TEXT,
             }}>HOS Comms</span>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Collapse sidebar"
+              title="Collapse sidebar"
+              style={{
+                marginLeft: "auto", width: 26, height: 26, borderRadius: 6,
+                background: "transparent", border: `1px solid ${BORDER}`, color: MUTED,
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" />
+              </svg>
+            </button>
           </div>
           <input
             value={search}
@@ -170,7 +186,27 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
       </div>
 
       {/* ── Main content area ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, position: "relative" }}>
+        {!sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Show chats sidebar"
+            title="Show chats"
+            style={{
+              position: "absolute", top: 12, left: 12, zIndex: 20,
+              height: 34, padding: "0 12px", borderRadius: 8,
+              background: SURF, border: `1px solid ${BORDER}`, color: TEXT,
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 7,
+              fontSize: 12, fontWeight: 600, fontFamily: "var(--font-ui)",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" />
+            </svg>
+            Chats
+          </button>
+        )}
         {!active ? (
           <div style={{
             flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
@@ -188,10 +224,10 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
           <>
             {/* Active client header */}
             <div style={{
-              padding: "12px 20px",
+              padding: "12px 20px", paddingLeft: sidebarOpen ? 20 : 108,
               borderBottom: `1px solid ${BORDER}`,
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: SURF, flexShrink: 0,
+              background: SURF, flexShrink: 0, transition: "padding-left 200ms ease",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{

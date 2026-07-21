@@ -9,6 +9,7 @@ import { useCall } from "@/components/comms/useCall";
 import { CallStage, NetBars } from "@/components/comms/CallStage";
 import { ChatPanel } from "@/components/comms/ChatPanel";
 import { VolumeControls } from "@/components/comms/VolumeControls";
+import { DeviceSettings } from "@/components/comms/DeviceSettings";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 import { playRingtone } from "@/lib/comms/sounds";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
@@ -115,6 +116,7 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
           <Screen />
         </CtrlBtn>
         <VolumeControls room={call.room} audioEls={call.audioEls} />
+        <DeviceSettings room={call.room} />
         <CtrlBtn label={fullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={() => setFullscreen(f => !f)}>
           {fullscreen ? <Minimize /> : <Maximize />}
         </CtrlBtn>
@@ -142,21 +144,28 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
     </div>
   );
 
-  // ── Fullscreen immersive stage ──
+  // ── Fullscreen immersive stage (chat available as a slide-over rail) ──
   if (inCall && fullscreen) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9500, background: "#000", display: "flex", flexDirection: "column" }}>
-        <div style={{ opacity: controlsVisible ? 1 : 0, transition: "opacity 300ms", pointerEvents: controlsVisible ? "auto" : "none" }}>
-          {stageHeader}
+      <div style={{ position: "fixed", inset: 0, zIndex: 9500, background: "#000", display: "flex" }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ opacity: controlsVisible ? 1 : 0, transition: "opacity 300ms", pointerEvents: controlsVisible ? "auto" : "none" }}>
+            {stageHeader}
+          </div>
+          <CallStage call={call} me={me} />
+          <div style={{
+            opacity: controlsVisible ? 1 : 0, transition: "opacity 300ms",
+            pointerEvents: controlsVisible ? "auto" : "none",
+            background: "rgba(12,12,12,0.9)", borderTop: `1px solid ${BORDER}`,
+          }}>
+            {controlBar}
+          </div>
         </div>
-        <CallStage call={call} me={me} />
-        <div style={{
-          opacity: controlsVisible ? 1 : 0, transition: "opacity 300ms",
-          pointerEvents: controlsVisible ? "auto" : "none",
-          background: "rgba(12,12,12,0.9)", borderTop: `1px solid ${BORDER}`,
-        }}>
-          {controlBar}
-        </div>
+        {chatOpen && (
+          <aside style={{ width: 360, flexShrink: 0, borderLeft: `1px solid ${BORDER}`, minHeight: 0, display: "flex", background: BG, animation: "railIn 240ms ease-out" }}>
+            {chat}
+          </aside>
+        )}
       </div>
     );
   }

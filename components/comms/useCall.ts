@@ -9,11 +9,17 @@ import {
   LocalAudioTrack, RemoteParticipant,
   type Participant, type RemoteTrackPublication, type LocalTrackPublication,
 } from "livekit-client";
+import { toast } from "sonner";
 import { postJSON } from "@/lib/comms/http";
 import {
   playJoin, playLeave, playConnected, playDisconnected,
   playScreenShare, playScreenShareEnd, playMuteToggle,
 } from "@/lib/comms/sounds";
+
+function isPermissionError(e: unknown): boolean {
+  const name = (e as { name?: string })?.name;
+  return name === "NotAllowedError" || name === "PermissionDeniedError";
+}
 
 interface TokenData { token: string; url: string; room: string; identity: string; peerName?: string }
 
@@ -200,7 +206,20 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
       });
 
       await room.connect(data.url, data.token);
-      await room.localParticipant.setMicrophoneEnabled(true);
+      try {
+        await room.localParticipant.setMicrophoneEnabled(true);
+      } catch (e) {
+        if (isPermissionError(e)) toast.error("Microphone blocked. Allow mic access in your browser's site settings to be heard.");
+        else toast.error("Couldn't access your microphone.");
+      }
+
+      // Apply saved device preferences (A2 device pipeline).
+      try {
+        const mic = localStorage.getItem("hos_mic");
+        const spk = localStorage.getItem("hos_spk");
+        if (mic) await room.switchActiveDevice("audioinput", mic).catch(() => {});
+        if (spk) await room.switchActiveDevice("audiooutput", spk).catch(() => {});
+      } catch { /* devices not available */ }
 
       const existing = Array.from(room.remoteParticipants.values())[0];
       if (existing) {
@@ -244,7 +263,17 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
     const room = roomRef.current;
     if (!room) return;
     const next = !cameraOn;
-    await room.localParticipant.setCameraEnabled(next);
+    let cam: string | null = null;
+    try { cam = localStorage.getItem("hos_cam"); } catch { /* ignore */ }
+    try {
+      await room.localParticipant.setCameraEnabled(next, cam ? { deviceId: cam } : undefined);
+    } catch (e) {
+      if (isPermissionError(e)) toast.error("Camera blocked. Allow camera access in your browser's site settings.");
+      else toast.error("Couldn't start your camera. Another app may be using it.");
+      setCameraOn(false);
+      setLocalVideoTrack(null);
+      return;
+    }
     setCameraOn(next);
     if (next) {
       const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
