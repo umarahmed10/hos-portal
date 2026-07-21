@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getPortalSession }   from "@/lib/portal-auth";
 import { getDocBySlug }       from "@/lib/data-access";
 import { AutoRefresh }        from "@/components/client/AutoRefresh";
+import { CountUp }            from "@/components/client/CountUp";
 import { money, fmtDate, fmtDateShort } from "@/lib/utils";
 import { BORDER, MUTED, TEXT } from "@/lib/styles";
 
@@ -78,13 +79,17 @@ export default async function PortalDashboardPage({ params }: Props) {
               borderRadius: 12, padding: "28px 28px 24px", marginBottom: 16,
             }}>
               <div style={sL}>Estimated ROI This Month</div>
-              <div style={{
-                fontFamily: "var(--font-display)", fontStyle: "italic",
-                fontWeight: 300, fontSize: "clamp(48px, 7vw, 72px)",
-                letterSpacing: "-0.02em", color: TEXT, lineHeight: 1, marginBottom: 8,
-              }}>
-                {money(netROI)}
-              </div>
+              <CountUp
+                value={netROI}
+                money
+                duration={1100}
+                style={{
+                  display: "block",
+                  fontFamily: "var(--font-display)", fontStyle: "italic",
+                  fontWeight: 300, fontSize: "clamp(48px, 7vw, 72px)",
+                  letterSpacing: "-0.02em", color: TEXT, lineHeight: 1, marginBottom: 8,
+                }}
+              />
               <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: MUTED, lineHeight: 1.6 }}>
                 {jobsBooked} jobs × {money(avgJobValue)} avg — {money(totalCost)} total spend
               </div>
@@ -96,35 +101,31 @@ export default async function PortalDashboardPage({ params }: Props) {
             {[
               {
                 label:  "Total Calls",
-                value:  String(callsTotal),
+                num:    callsTotal, money: false,
                 note:   `${qualRate}% qualified`,
-                accent: true,
-                small:  false,
+                accent: true,  small: false,
               },
               {
                 label:  "Qualified Calls",
-                value:  String(callsQual),
+                num:    callsQual, money: false,
                 note:   callsTotal > 0 ? `${callsTotal - callsQual} not qualified` : "—",
-                accent: false,
-                small:  false,
+                accent: false, small: false,
               },
               {
                 label:  "Jobs Booked",
-                value:  String(jobsBooked),
+                num:    jobsBooked, money: false,
                 note:   jobsBooked > 0 && avgJobValue > 0
                           ? `~${money(jobsBooked * avgJobValue)} est. revenue`
                           : "—",
-                accent: false,
-                small:  false,
+                accent: false, small: false,
               },
               {
                 label:  "Cost / Qualified Call",
-                value:  money(costPerQual),
+                num:    costPerQual, money: true,
                 note:   `${money(costPerCall)} per total call`,
-                accent: false,
-                small:  true,
+                accent: false, small: true,
               },
-            ].map(({ label, value, note, accent, small }) => (
+            ].map(({ label, num, money: isMoney, note, accent, small }) => (
               <div key={label} style={{
                 background:   "#1A1A1A",
                 border:       "1px solid #2A2A2A",
@@ -134,9 +135,11 @@ export default async function PortalDashboardPage({ params }: Props) {
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginBottom: 8 }}>
                   {label}
                 </div>
-                <div style={{ fontFamily: "var(--font-ui)", fontSize: small ? 22 : 36, fontWeight: 600, letterSpacing: "-0.03em", color: TEXT, lineHeight: 1, marginBottom: 4 }}>
-                  {value}
-                </div>
+                <CountUp
+                  value={num}
+                  money={isMoney}
+                  style={{ display: "block", fontFamily: "var(--font-ui)", fontSize: small ? 22 : 36, fontWeight: 600, letterSpacing: "-0.03em", color: TEXT, lineHeight: 1, marginBottom: 4 }}
+                />
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#404040", letterSpacing: "0.06em" }}>
                   {note}
                 </div>
@@ -150,7 +153,7 @@ export default async function PortalDashboardPage({ params }: Props) {
               <div style={sL}>Budget</div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
                 <div style={{ fontFamily: "var(--font-ui)", fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em", color: TEXT }}>
-                  {money(adSpend)}
+                  <CountUp value={adSpend} money />
                   <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: MUTED, fontWeight: 400, marginLeft: 8 }}>
                     of {money(monthlyBudget)}
                   </span>
@@ -202,8 +205,10 @@ export default async function PortalDashboardPage({ params }: Props) {
             <div style={{ ...sL, marginBottom: 10 }}>Campaign</div>
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               {["Agreement signed", "Payment received", "Campaign deploying", "First calls live"].map(label => (
-                <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ color: "#4EAD87", fontSize: 11 }}>✓</span>
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg width="9" height="8" viewBox="0 0 8 7" fill="none" style={{ flexShrink: 0 }}>
+                    <polyline points="1,3.5 3,5.5 7,1" stroke="#4EAD87" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.08em", color: "#404040", textTransform: "uppercase" }}>
                     {label}
                   </span>

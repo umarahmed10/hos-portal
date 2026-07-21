@@ -113,7 +113,10 @@ export default async function ClientDocPage({ params }: Props) {
                 borderRadius: 8,
                 border:       `1px solid ${BORDER}`,
               }}>
-                <div style={{ fontSize: 20, flexShrink: 0 }}>📄</div>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B6B3E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" />
+                  <line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="13" y2="17" />
+                </svg>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, color: TEXT, fontFamily: "var(--font-body)" }}>Service agreement</div>
                   <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
@@ -135,7 +138,10 @@ export default async function ClientDocPage({ params }: Props) {
                 borderRadius: 8,
                 border:       `1px solid ${BORDER}`,
               }}>
-                <div style={{ fontSize: 20, flexShrink: 0 }}>🧾</div>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B6B3E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <path d="M4 2v20l2-1.5L8 22l2-1.5L12 22l2-1.5L16 22l2-1.5L20 22V2l-2 1.5L16 2l-2 1.5L12 2l-2 1.5L8 2 6 3.5 4 2z" />
+                  <line x1="8" y1="9" x2="16" y2="9" /><line x1="8" y1="13" x2="14" y2="13" />
+                </svg>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, color: TEXT, fontFamily: "var(--font-body)" }}>Invoice</div>
                   <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
