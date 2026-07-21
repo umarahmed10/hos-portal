@@ -6,7 +6,7 @@ import Link                 from "next/link";
 import { headers }          from "next/headers";
 import { getDocForClient, logEvent, recordFirstView } from "@/lib/data-access";
 import { getAdminSession }  from "@/lib/auth";
-import { SignedPortalEntrance } from "@/components/client/SignedPortalEntrance";
+import { PortalEntranceGate } from "@/components/client/PortalEntranceGate";
 import { TrustBox }         from "@/components/client/TrustBox";
 import { ProgressBanner }   from "@/components/client/ProgressBanner";
 import { HOSLogo }          from "@/components/shared/HOSLogo";
@@ -41,9 +41,10 @@ export default async function ClientDocPage({ params }: Props) {
   const isPending = doc.status === "pending";
   const isSigned  = doc.status === "signed";
 
-  // Signed clients go directly to the portal entrance — no document list
+  // Signed clients see the "You're in." celebration once (per device); on
+  // return visits the gate silently forwards them into the portal.
   if (isSigned) {
-    return <SignedPortalEntrance doc={doc} />;
+    return <PortalEntranceGate doc={doc} />;
   }
 
   return (

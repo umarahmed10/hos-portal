@@ -33,6 +33,7 @@ interface Props {
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 const RING_WINDOW_MS = 35_000;
+const GROUP_WINDOW_MS = 5 * 60_000; // group consecutive same-sender messages within 5 min
 const DATA_CHANNEL_TOPIC = "chat";
 const READ_RECEIPT_TOPIC = "read-receipt";
 
@@ -44,14 +45,21 @@ function initials(name: string): string {
 }
 
 function fmtClock(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
-function fmtDuration(sec = 0): string {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
+function sameDay(a: string, b: string): boolean {
+  const da = new Date(a), db = new Date(b);
+  return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+}
+
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  if (sameDay(iso, now.toISOString())) return "Today";
+  const y = new Date(now); y.setDate(now.getDate() - 1);
+  if (sameDay(iso, y.toISOString())) return "Yesterday";
+  return d.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
 }
 
 export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", room }: Props) {
@@ -65,10 +73,6 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
   );
   const serverMessages = useMemo(() => (data?.ok ? data.data.messages : []), [data]);
 
-  // Optimistic messages shown immediately; cleaned up when server confirms.
-  // Key fix: we never manually remove optimistic messages — the cleanup effect
-  // handles it when the server poll returns data containing the real message.
-  // This prevents the send→unsend→resend flicker.
   const [optimistic, setOptimistic] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -77,10 +81,8 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const prevMsgCountRef = useRef(0);
 
-  // Data-channel incoming messages
   const [dcMessages, setDcMessages] = useState<Message[]>([]);
 
-  // Merge: server authoritative; DC and optimistic fill the gap
   const messages = useMemo(() => {
     const serverIds = new Set(serverMessages.map(m => m.id));
     const unsyncedDc = dcMessages.filter(m => !serverIds.has(m.id));
@@ -89,7 +91,6 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
     return [...serverMessages, ...unsyncedDc, ...unsyncedOpt];
   }, [serverMessages, dcMessages, optimistic]);
 
-  // Clean up once server catches up
   useEffect(() => {
     if (serverMessages.length === 0) return;
     const serverIds = new Set(serverMessages.map(m => m.id));
@@ -103,7 +104,6 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
     });
   }, [serverMessages]);
 
-  // Broadcast read-receipt via data channel when we see new peer messages
   const sentReadRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!room || room.state !== "connected") return;
@@ -118,7 +118,6 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
     } catch { /* best-effort */ }
   }, [serverMessages, room, me]);
 
-  // Play receive sound for new incoming messages
   useEffect(() => {
     const count = messages.filter(m => m.kind === "text" && m.sender_role !== me && !m.id.startsWith("opt-")).length;
     if (count > prevMsgCountRef.current && prevMsgCountRef.current > 0) {
@@ -131,10 +130,8 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length]);
 
-  // Track which read-receipt IDs we've already applied locally via data channel
   const appliedReadRef = useRef<Set<string>>(new Set());
 
-  // LiveKit data channel: receive chat messages + read receipts
   useEffect(() => {
     if (!room || room.state !== "connected") return;
 
@@ -149,11 +146,8 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
       if (topic === DATA_CHANNEL_TOPIC) {
         try {
           const msg: Message = JSON.parse(new TextDecoder().decode(payload));
-          setDcMessages(prev => {
-            if (prev.some(m => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
-        } catch { /* ignore non-JSON payloads */ }
+          setDcMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
+        } catch { /* ignore */ }
         return;
       }
 
@@ -183,13 +177,8 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
 
     const optId = `opt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const optMsg: Message = {
-      id: optId,
-      sender_role: me,
-      body,
-      kind: "text",
-      meta: null,
-      created_at: new Date().toISOString(),
-      read_at: null,
+      id: optId, sender_role: me, body, kind: "text",
+      meta: null, created_at: new Date().toISOString(), read_at: null,
     };
     setOptimistic(prev => [...prev, optMsg]);
     playSend();
@@ -203,29 +192,21 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
       const j = await res.json();
       if (j.ok) {
         const saved: Message = j.data.message;
-
-        // Swap the optimistic ID for the real one so dedup works
         setOptimistic(prev => prev.map(m => m.id === optId ? { ...m, id: saved.id } : m));
-
-        // Broadcast via data channel if in-call
         if (room?.state === "connected") {
           try {
             const payload = new TextEncoder().encode(JSON.stringify(saved));
-            void room.localParticipant.publishData(payload, {
-              topic: DATA_CHANNEL_TOPIC,
-              reliable: true,
-            });
-          } catch { /* data channel best-effort */ }
+            void room.localParticipant.publishData(payload, { topic: DATA_CHANNEL_TOPIC, reliable: true });
+          } catch { /* best-effort */ }
         }
-
-        // Revalidate SWR — the cleanup effect will remove the optimistic copy
-        // once the server data includes the real message
         void mutate();
       } else {
         setOptimistic(prev => prev.filter(m => m.id !== optId));
+        toast.error(j.error || "Message failed to send");
       }
     } catch {
       setOptimistic(prev => prev.filter(m => m.id !== optId));
+      toast.error("Message failed to send");
     } finally {
       setSending(false);
     }
@@ -272,6 +253,7 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
         void mutate();
       } else {
         setOptimistic(prev => prev.filter(m => m.id !== optId));
+        toast.error(msgJson.error || "Upload failed");
       }
     } catch (err) {
       toast.error(`Upload failed: ${(err as Error).message || "Something went wrong"}`);
@@ -289,94 +271,73 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
       <div style={{
         padding: "12px 16px", borderBottom: `1px solid ${BORDER}`,
         fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.15em",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
+        display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0,
       }}>
         <span>Messages · {code}</span>
         {hasRoom && (
-          <span style={{
-            fontSize: 9, color: GREEN, fontWeight: 600,
-            display: "flex", alignItems: "center", gap: 4,
-          }}>
-            <span style={{
-              width: 5, height: 5, borderRadius: "50%", background: GREEN,
-              display: "inline-block",
-            }} />
+          <span style={{ fontSize: 9, color: GREEN, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: GREEN, display: "inline-block" }} />
             LIVE
           </span>
         )}
       </div>
 
-      <div ref={listRef} style={{
-        flex: 1, overflowY: "auto", padding: 16,
-        display: "flex", flexDirection: "column", gap: 10,
-      }}>
+      <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "8px 0", minHeight: 0 }}>
         {messages.length === 0 && (
           <div style={{ color: MUTED, fontSize: 13, textAlign: "center", marginTop: 40 }}>
             No messages yet.
           </div>
         )}
+
         {messages.map((m, i) => {
+          const prev = messages[i - 1];
+          const showDivider = !prev || !sameDay(prev.created_at, m.created_at);
+
           if (m.kind === "call") {
-            return <CallRow key={m.id} m={m} rest={messages.slice(i + 1)} />;
+            return (
+              <div key={m.id}>
+                {showDivider && <DateDivider iso={m.created_at} />}
+                <CallRow m={m} rest={messages.slice(i + 1)} />
+              </div>
+            );
           }
+
           const mine = m.sender_role === me;
           const name = nameFor(m.sender_role);
           const isOptimistic = m.id.startsWith("opt-");
 
+          // Group with previous message from the same sender within the window.
+          const grouped = !showDivider && !!prev && prev.kind !== "call"
+            && prev.sender_role === m.sender_role
+            && (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()) < GROUP_WINDOW_MS;
+
+          let att: Attachment | null = null;
           if (m.kind === "attachment") {
-            let att: Attachment | null = null;
-            try { att = JSON.parse(m.body); } catch { /* fallback to text */ }
-            if (att) {
-              return (
-                <div key={m.id} style={{
-                  display: "flex", flexDirection: mine ? "row-reverse" : "row",
-                  alignItems: "flex-end", gap: 8,
-                  opacity: isOptimistic ? 0.55 : 1,
-                  transition: "opacity 300ms ease",
-                }}>
-                  <Avatar name={name} role={m.sender_role} />
-                  <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
-                    <div style={{ fontSize: 10, color: MUTED, margin: "0 4px 3px", display: "flex", gap: 6 }}>
-                      <span style={{ fontWeight: 600, color: mine ? GOLD : TEXT, opacity: 0.85 }}>{name}</span>
-                      <span>{fmtClock(m.created_at)}</span>
-                    </div>
-                    <AttachmentBubble att={att} mine={mine} />
-                    {mine && <ReadReceipt optimistic={isOptimistic} readAt={m.read_at} />}
-                  </div>
-                </div>
-              );
-            }
+            try { att = JSON.parse(m.body); } catch { att = null; }
           }
 
           return (
-            <div key={m.id} style={{
-              display: "flex", flexDirection: mine ? "row-reverse" : "row",
-              alignItems: "flex-end", gap: 8,
-              opacity: isOptimistic ? 0.55 : 1,
-              transition: "opacity 300ms ease",
-            }}>
-              <Avatar name={name} role={m.sender_role} />
-              <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
-                <div style={{ fontSize: 10, color: MUTED, margin: "0 4px 3px", display: "flex", gap: 6 }}>
-                  <span style={{ fontWeight: 600, color: mine ? GOLD : TEXT, opacity: 0.85 }}>{name}</span>
-                  <span>{fmtClock(m.created_at)}</span>
-                </div>
-                <div style={{
-                  background: mine ? GOLD : SURF_2,
-                  color: mine ? BG : TEXT,
-                  padding: "8px 12px", borderRadius: 10,
-                  fontSize: 14, lineHeight: 1.4, whiteSpace: "pre-wrap", wordBreak: "break-word",
-                }}>{m.body}</div>
-                {mine && (
-                  <ReadReceipt optimistic={isOptimistic} readAt={m.read_at} />
-                )}
-              </div>
+            <div key={m.id}>
+              {showDivider && <DateDivider iso={m.created_at} />}
+              <MessageRow
+                grouped={grouped}
+                mine={mine}
+                name={name}
+                role={m.sender_role}
+                iso={m.created_at}
+                optimistic={isOptimistic}
+                readAt={m.read_at}
+              >
+                {att
+                  ? <AttachmentBubble att={att} />
+                  : <span style={{ fontSize: 14, lineHeight: 1.45, color: TEXT, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.body}</span>}
+              </MessageRow>
             </div>
           );
         })}
       </div>
 
-      <div style={{ display: "flex", gap: 6, padding: 12, borderTop: `1px solid ${BORDER}`, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 6, padding: 12, borderTop: `1px solid ${BORDER}`, alignItems: "center", flexShrink: 0 }}>
         <input
           ref={fileInputRef}
           type="file"
@@ -422,27 +383,79 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
           onClick={send}
           disabled={!text.trim() || sending}
           style={{
-            padding: "0 18px", borderRadius: 8, background: TEXT, color: BG,
+            padding: "0 18px", height: 40, borderRadius: 8, background: TEXT, color: BG,
             border: "none", fontWeight: 600, cursor: text.trim() ? "pointer" : "not-allowed",
             opacity: text.trim() && !sending ? 1 : 0.4,
           }}
         >Send</button>
       </div>
+
+      <style>{`
+        .comms-msg-row:hover { background: rgba(243,241,236,0.03); }
+        .comms-msg-row:hover .comms-hover-time { opacity: 0.6; }
+      `}</style>
     </div>
   );
 }
 
 const READ_BLUE = "#5BA0D0";
 
+// Discord-style message row: avatar + name/time header on group start, tight
+// continuation lines when grouped. Everything left-aligned.
+function MessageRow({ grouped, mine, name, role, iso, optimistic, readAt, children }: {
+  grouped: boolean; mine: boolean; name: string; role: "admin" | "client";
+  iso: string; optimistic: boolean; readAt: string | null; children: React.ReactNode;
+}) {
+  return (
+    <div className="comms-msg-row" style={{
+      display: "flex", gap: 12, alignItems: "flex-start",
+      padding: grouped ? "1px 16px" : "6px 16px 1px",
+      opacity: optimistic ? 0.55 : 1, transition: "opacity 300ms, background 120ms",
+      position: "relative",
+    }}>
+      <div style={{ width: 32, flexShrink: 0, display: "flex", justifyContent: "center", paddingTop: grouped ? 0 : 2 }}>
+        {grouped
+          ? <span className="comms-hover-time" style={{ fontSize: 9, color: MUTED, opacity: 0, fontFamily: "var(--font-mono)", lineHeight: "20px" }}>
+              {new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M/i, "")}
+            </span>
+          : <Avatar name={name} role={role} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {!grouped && (
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: mine ? GOLD : TEXT, fontFamily: "var(--font-ui)" }}>{name}</span>
+            <span style={{ fontSize: 10, color: MUTED }}>{fmtClock(iso)}</span>
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+          <div style={{ minWidth: 0 }}>{children}</div>
+          {mine && <ReadReceipt optimistic={optimistic} readAt={readAt} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DateDivider({ iso }: { iso: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "14px 16px 6px" }}>
+      <div style={{ flex: 1, height: 1, background: BORDER }} />
+      <span style={{
+        fontSize: 10, color: MUTED, fontFamily: "var(--font-mono)",
+        letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 500, whiteSpace: "nowrap",
+      }}>{dayLabel(iso)}</span>
+      <div style={{ flex: 1, height: 1, background: BORDER }} />
+    </div>
+  );
+}
+
 function ReadReceipt({ optimistic, readAt }: { optimistic: boolean; readAt: string | null }) {
   const isRead = !optimistic && !!readAt;
   return (
     <span style={{
-      fontSize: 10, marginTop: 2, marginRight: 2,
-      color: isRead ? READ_BLUE : MUTED,
-      opacity: isRead ? 1 : 0.5,
-      fontFamily: "var(--font-mono)",
-      letterSpacing: "-0.02em",
+      fontSize: 10, flexShrink: 0,
+      color: isRead ? READ_BLUE : MUTED, opacity: isRead ? 1 : 0.45,
+      fontFamily: "var(--font-mono)", letterSpacing: "-0.02em",
     }}>
       {isRead ? "✓✓" : "✓"}
     </span>
@@ -450,14 +463,13 @@ function ReadReceipt({ optimistic, readAt }: { optimistic: boolean; readAt: stri
 }
 
 function Avatar({ name, role }: { name: string; role: "admin" | "client" }) {
-  if (role === "admin") return <HOSTeamAvatar size={28} />;
+  if (role === "admin") return <HOSTeamAvatar size={32} />;
   return (
     <div style={{
-      width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+      width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
       background: "#3A3A3A", color: TEXT,
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: 10, fontWeight: 700, letterSpacing: "0.02em",
-      fontFamily: "var(--font-ui)",
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.02em", fontFamily: "var(--font-ui)",
     }}>{initials(name)}</div>
   );
 }
@@ -468,7 +480,7 @@ function fmtSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function AttachmentBubble({ att, mine }: { att: Attachment; mine: boolean }) {
+function AttachmentBubble({ att }: { att: Attachment }) {
   const isImage = att.type.startsWith("image/");
   return (
     <a
@@ -477,34 +489,21 @@ function AttachmentBubble({ att, mine }: { att: Attachment; mine: boolean }) {
       rel="noopener noreferrer"
       style={{
         display: "block", textDecoration: "none",
-        background: mine ? GOLD : SURF_2,
-        borderRadius: 10, overflow: "hidden",
-        maxWidth: 240,
-        border: `1px solid ${mine ? "transparent" : BORDER}`,
+        background: SURF_2, borderRadius: 10, overflow: "hidden",
+        maxWidth: 280, border: `1px solid ${BORDER}`, marginTop: 2,
       }}
     >
       {isImage ? (
-        <img
-          src={att.url}
-          alt={att.filename}
-          style={{ width: "100%", display: "block", maxHeight: 200, objectFit: "cover" }}
-        />
+        <img src={att.url} alt={att.filename} style={{ width: "100%", display: "block", maxHeight: 240, objectFit: "cover" }} />
       ) : (
-        <div style={{
-          padding: "10px 12px", display: "flex", alignItems: "center", gap: 8,
-        }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={mine ? BG : MUTED} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
             <polyline points="14 2 14 8 20 8" />
           </svg>
           <div style={{ minWidth: 0 }}>
-            <div style={{
-              fontSize: 12, fontWeight: 600, color: mine ? BG : TEXT,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>{att.filename}</div>
-            <div style={{ fontSize: 10, color: mine ? "rgba(0,0,0,0.5)" : MUTED }}>
-              {fmtSize(att.size)}
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{att.filename}</div>
+            <div style={{ fontSize: 10, color: MUTED }}>{fmtSize(att.size)}</div>
           </div>
         </div>
       )}
@@ -517,10 +516,8 @@ function CallRow({ m, rest }: { m: Message; rest: Message[] }) {
   if (!meta) return null;
 
   let label: string;
-  let icon: string;
-  let color: string;
-
   let iconType: "ended" | "phone" | "missed" | "calling" = "phone";
+  let color: string;
 
   if (meta.event === "ended") {
     const dur = meta.duration_sec ?? 0;
@@ -541,15 +538,12 @@ function CallRow({ m, rest }: { m: Message; rest: Message[] }) {
   }
 
   return (
-    <div style={{
-      alignSelf: "center", display: "flex", alignItems: "center", gap: 8,
-      padding: "6px 14px", borderRadius: 20,
-      background: "rgba(255,255,255,0.03)", border: `1px solid ${BORDER}`,
-      fontSize: 12, color,
-    }}>
-      <CallIcon type={iconType} color={color} />
-      <span style={{ fontWeight: 600 }}>{label}</span>
-      <span style={{ color: MUTED, opacity: 0.7, fontSize: 10 }}>{fmtClock(m.created_at)}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 16px" }}>
+      <div style={{ width: 32, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+        <CallIcon type={iconType} color={color} />
+      </div>
+      <span style={{ fontSize: 13, color, fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 10, color: MUTED, opacity: 0.7 }}>{fmtClock(m.created_at)}</span>
     </div>
   );
 }
@@ -557,21 +551,21 @@ function CallRow({ m, rest }: { m: Message; rest: Message[] }) {
 function CallIcon({ type, color }: { type: "ended" | "phone" | "missed" | "calling"; color: string }) {
   if (type === "ended") {
     return (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12" />
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
       </svg>
     );
   }
   if (type === "missed") {
     return (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.42 19.42 0 01-3.33-2.67m-2.67-3.34a19.79 19.79 0 01-3.07-8.63A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91" />
         <line x1="23" y1="1" x2="1" y2="23" />
       </svg>
     );
   }
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
     </svg>
   );

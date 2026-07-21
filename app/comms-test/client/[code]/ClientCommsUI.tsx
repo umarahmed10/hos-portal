@@ -12,12 +12,13 @@ import { BG, SURF, BORDER, TEXT, MUTED, GOLD, GREEN } from "@/lib/styles";
 interface Props {
   code:           string;
   clientName:     string;
+  slug?:          string | null;
   vapidPublicKey: string;
 }
 
 type SessionState = "checking" | "unauth" | "ready";
 
-export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
+export function ClientCommsUI({ code, clientName, slug, vapidPublicKey }: Props) {
   const router = useRouter();
   const search = useSearchParams();
   const [session, setSession] = useState<SessionState>("checking");
@@ -103,8 +104,10 @@ export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
       }}>
         <button
           onClick={() => {
-            const slug = code.toLowerCase();
-            router.push(`/portal/${slug}`);
+            // Use the real portal slug (NOT the access code — they differ).
+            // Fall back to browser history if this client has no slug yet.
+            if (slug) router.push(`/portal/${slug}`);
+            else router.back();
           }}
           aria-label="Back to portal"
           title="Back to portal"
@@ -131,7 +134,7 @@ export function ClientCommsUI({ code, clientName, vapidPublicKey }: Props) {
       </div>
 
       {/* Main content — call + chat, always accessible */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", maxWidth: 640, margin: "0 auto", width: "100%" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", maxWidth: 900, margin: "0 auto", width: "100%" }}>
         {/* Call panel — compact, constrained */}
         <div style={{ flexShrink: 0, padding: "12px 16px 0", maxHeight: "45vh", overflow: "auto" }}>
           <CallPanel code={code} me="client" autoJoin={inCall} onLeave={() => setInCall(false)} onRoom={setLkRoom} />

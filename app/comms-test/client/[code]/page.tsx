@@ -26,6 +26,7 @@ export default async function CommsClientPage({
     <ClientCommsUI
       code={upper}
       clientName={doc.name}
+      slug={doc.slug ?? null}
       vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
     />
   );
