@@ -126,8 +126,14 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
     prevMsgCountRef.current = count;
   }, [messages, me]);
 
+  // Jump to the newest message. First population is instant (reliable landing on
+  // the latest, like Discord opening a DM); later messages animate.
+  const didInitialScrollRef = useRef(false);
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: didInitialScrollRef.current ? "smooth" : "auto" });
+    if (messages.length > 0) didInitialScrollRef.current = true;
   }, [messages.length]);
 
   const appliedReadRef = useRef<Set<string>>(new Set());
@@ -328,10 +334,11 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
                 iso={m.created_at}
                 optimistic={isOptimistic}
                 readAt={m.read_at}
+                showReceipt={mine && me === "admin"}
               >
                 {att
                   ? <AttachmentBubble att={att} />
-                  : <span style={{ fontSize: 14, lineHeight: 1.45, color: TEXT, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.body}</span>}
+                  : <span style={{ fontSize: 14.5, lineHeight: 1.5, color: TEXT, fontFamily: "var(--font-body)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.body}</span>}
               </MessageRow>
             </div>
           );
@@ -403,9 +410,9 @@ const READ_BLUE = "#5BA0D0";
 
 // Discord-style message row: avatar + name/time header on group start, tight
 // continuation lines when grouped. Everything left-aligned.
-function MessageRow({ grouped, mine, name, role, iso, optimistic, readAt, children }: {
+function MessageRow({ grouped, mine, name, role, iso, optimistic, readAt, showReceipt, children }: {
   grouped: boolean; mine: boolean; name: string; role: "admin" | "client";
-  iso: string; optimistic: boolean; readAt: string | null; children: React.ReactNode;
+  iso: string; optimistic: boolean; readAt: string | null; showReceipt: boolean; children: React.ReactNode;
 }) {
   return (
     <div className="comms-msg-row" style={{
@@ -430,7 +437,7 @@ function MessageRow({ grouped, mine, name, role, iso, optimistic, readAt, childr
         )}
         <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
           <div style={{ minWidth: 0 }}>{children}</div>
-          {mine && <ReadReceipt optimistic={optimistic} readAt={readAt} />}
+          {showReceipt && <ReadReceipt optimistic={optimistic} readAt={readAt} />}
         </div>
       </div>
     </div>

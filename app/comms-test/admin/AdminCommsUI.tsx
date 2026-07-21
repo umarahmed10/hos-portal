@@ -20,7 +20,6 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
   const router = useRouter();
   const [active, setActive] = useState<Client | null>(null);
   const [autoJoin, setAutoJoin] = useState(false);
-  const [ringing, setRinging] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const filtered = clients.filter(c =>
@@ -29,11 +28,9 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
     (c.company?.toLowerCase().includes(search.toLowerCase()) ?? false)
   );
 
-  // Ring the client's devices. Called automatically when the admin joins the
-  // voice channel (Discord model: you sit in the call, it rings them) and also
-  // available as a manual "Ring again" if they don't pick up.
+  // Ring the client's devices — fired automatically when the admin joins the
+  // call (Discord model: you sit in the call, it rings them).
   async function notifyRing(client: Client) {
-    setRinging(client.code);
     try {
       const data = await postJSON<{ delivered: number; total: number }>(
         "/api/comms/ring", { code: client.code },
@@ -41,8 +38,6 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
       toast.success(`Ringing ${client.name.split(" ")[0]} · ${data.delivered}/${data.total} device(s)`);
     } catch (e) {
       toast.error(`Ring failed: ${(e as Error).message}`);
-    } finally {
-      setRinging(null);
     }
   }
 
@@ -213,28 +208,6 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  onClick={() => notifyRing(active)}
-                  disabled={ringing === active.code}
-                  title="Re-ring their devices"
-                  style={{
-                    padding: "7px 14px", borderRadius: 6,
-                    background: "rgba(78,173,135,0.12)", color: GREEN,
-                    border: "1px solid rgba(78,173,135,0.25)",
-                    fontSize: 11, fontWeight: 600, cursor: "pointer",
-                    letterSpacing: "0.04em", textTransform: "uppercase",
-                    display: "flex", alignItems: "center", gap: 6,
-                    opacity: ringing === active.code ? 0.5 : 1,
-                    fontFamily: "var(--font-ui)",
-                  }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
-                  </svg>
-                  {ringing === active.code ? "Ringing…" : "Ring again"}
-                </button>
-              </div>
             </div>
 
             {/* Discord-style workspace — call stage + chat rail.

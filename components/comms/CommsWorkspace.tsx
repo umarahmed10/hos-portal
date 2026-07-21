@@ -3,12 +3,14 @@
 // header; in a call the media STAGE takes over with a collapsible chat rail and
 // a floating control bar. Responsive: on narrow screens the chat rail stacks
 // under the stage. Both admin and client render this; hosts add their chrome.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Room } from "livekit-client";
 import { useCall } from "@/components/comms/useCall";
 import { CallStage, NetBars } from "@/components/comms/CallStage";
 import { ChatPanel } from "@/components/comms/ChatPanel";
 import { VolumeControls } from "@/components/comms/VolumeControls";
+import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
+import { playRingtone } from "@/lib/comms/sounds";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 
 interface Props {
@@ -27,6 +29,9 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
   const [chatOpen, setChatOpen] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [incoming, setIncoming] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const ringStopRef = useRef<(() => void) | null>(null);
 
   const { state, inCall, seconds, remote, remoteSpeaking, peerName: livePeer, localQuality, remoteQuality, error } = call;
   const shownPeer = livePeer && livePeer !== "them" ? livePeer : peerName;
@@ -50,6 +55,38 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [fullscreen]);
+
+  // Incoming-call detection via LiveKit room presence — an open page reliably
+  // hears a call without depending on push. If the peer is sitting in the room
+  // and we haven't joined, we're being rung.
+  useEffect(() => {
+    if (inCall || state === "connecting") { setIncoming(false); return; }
+    let stop = false;
+    const poll = async () => {
+      if (stop || document.visibilityState !== "visible") return;
+      try {
+        const r = await fetch(`/api/comms/call-state?code=${code}&asRole=${me}`);
+        const j = await r.json();
+        if (!stop && j.ok) setIncoming(!!j.data.ringing);
+      } catch { /* ignore */ }
+    };
+    void poll();
+    const t = setInterval(poll, 3000);
+    return () => { stop = true; clearInterval(t); };
+  }, [inCall, state, code, me]);
+
+  useEffect(() => { if (!incoming) setDismissed(false); }, [incoming]);
+
+  const showIncoming = incoming && !dismissed && !inCall;
+
+  // Ringtone + haptics while an incoming call is pulsing.
+  useEffect(() => {
+    if (showIncoming) {
+      ringStopRef.current = playRingtone();
+      navigator.vibrate?.([400, 200, 400, 200, 600]);
+    }
+    return () => { ringStopRef.current?.(); ringStopRef.current = null; navigator.vibrate?.(0); };
+  }, [showIncoming]);
 
   const chat = (
     <ChatPanel code={code} me={me} myName={myName} peerName={shownPeer} room={call.room} />
@@ -152,6 +189,65 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
     );
   }
 
+  // ── Incoming call — Discord-style: stage activates, caller avatar pulses ──
+  if (showIncoming) {
+    const callerName = me === "client" ? "HOS Team" : shownPeer;
+    const callerIsAdmin = me === "client";
+    const callerInitials = callerName.trim().split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join("").toUpperCase() || "?";
+    return (
+      <div className="comms-ws" style={{ flex: 1, width: "100%", minWidth: 0, display: "flex", height: "100%", minHeight: 0, background: "#0A0A0A" }}>
+        <div className="comms-ws-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, alignItems: "center", justifyContent: "center", gap: 26, padding: 24 }}>
+          <div style={{ fontSize: 11, color: GOLD, letterSpacing: "0.24em", textTransform: "uppercase", fontFamily: "var(--font-mono)", animation: "fadeIn 300ms ease-out" }}>
+            Incoming call
+          </div>
+          <div style={{ position: "relative", width: 128, height: 128, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${GREEN}`, animation: "ringPulse 1.5s ease-out infinite" }} />
+            <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${GREEN}`, animation: "ringPulse 1.5s ease-out infinite 0.5s" }} />
+            <div style={{
+              width: 108, height: 108, borderRadius: "50%", overflow: "hidden",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "#161616", filter: "brightness(0.72)", animation: "callerBob 1.5s ease-in-out infinite",
+            }}>
+              {callerIsAdmin
+                ? <HOSTeamAvatar size={92} />
+                : <div style={{ width: 92, height: 92, borderRadius: "50%", background: "#2E2E2E", color: TEXT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700, fontFamily: "var(--font-ui)" }}>{callerInitials}</div>}
+            </div>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 600, color: TEXT, fontFamily: "var(--font-ui)" }}>{callerName}</div>
+          <div style={{ fontSize: 13, color: MUTED }}>is calling you…</div>
+          <div style={{ display: "flex", gap: 26, marginTop: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <button onClick={() => { setDismissed(true); }} aria-label="Decline"
+                style={{ width: 62, height: 62, borderRadius: "50%", background: RED, color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 20px rgba(201,106,106,0.4)" }}>
+                <PhoneOff />
+              </button>
+              <span style={{ fontSize: 11, color: MUTED }}>Decline</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <button onClick={() => { setIncoming(false); void call.connect(); }} aria-label="Accept"
+                style={{ width: 62, height: 62, borderRadius: "50%", background: GREEN, color: "#0A0A0A", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 20px rgba(78,173,135,0.45)", animation: "acceptBob 1.6s ease-in-out infinite" }}>
+                <Phone />
+              </button>
+              <span style={{ fontSize: 11, color: MUTED }}>Accept</span>
+            </div>
+          </div>
+        </div>
+        {chatOpen && (
+          <aside className="comms-ws-chat" style={{ width: 360, flexShrink: 0, borderLeft: `1px solid ${BORDER}`, minHeight: 0, display: "flex", background: BG }}>
+            {chat}
+          </aside>
+        )}
+        <style>{`
+          @keyframes ringPulse { 0% { transform: scale(0.85); opacity: 0.9; } 100% { transform: scale(1.35); opacity: 0; } }
+          @keyframes callerBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+          @keyframes acceptBob { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+          @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+          @media (max-width: 820px) { .comms-ws { flex-direction: column; } .comms-ws-chat { width: 100% !important; border-left: none !important; border-top: 1px solid ${BORDER}; min-height: 240px; } }
+        `}</style>
+      </div>
+    );
+  }
+
   // ── Idle: chat + call-start header (Discord DM header) ──
   return (
     <div style={{ flex: 1, width: "100%", minWidth: 0, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: BG }}>
@@ -162,16 +258,21 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
         <span style={{ fontSize: 12, color: MUTED, fontFamily: "var(--font-mono)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
           Direct line
         </span>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <StartBtn label={me === "admin" ? "Start call — rings them" : "Start voice call"} onClick={call.connect}>
-            <Phone />
-            <span style={{ fontSize: 12, fontWeight: 600 }}>{me === "admin" ? "Call" : "Voice"}</span>
-          </StartBtn>
-          <StartBtn label="Start with video" onClick={async () => { await call.connect(); }} video>
-            <Cam />
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Video</span>
-          </StartBtn>
-        </div>
+        <button
+          onClick={call.connect}
+          title={me === "admin" ? "Start a call — rings them" : "Start a call with the HOS team"}
+          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(78,173,135,0.28)"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+          style={{
+            marginLeft: "auto", display: "flex", alignItems: "center", gap: 8,
+            padding: "9px 20px", borderRadius: 10, background: GREEN, color: "#0A0A0A",
+            border: "none", cursor: "pointer", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: 13,
+            transition: "transform 140ms, box-shadow 140ms",
+          }}
+        >
+          <Phone />
+          <span>Call</span>
+        </button>
       </div>
       {error && <div style={{ fontSize: 12, color: RED, padding: "8px 16px" }}>{error}</div>}
       {state === "connecting" && (
@@ -184,18 +285,6 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
         {chat}
       </div>
     </div>
-  );
-}
-
-function StartBtn({ children, label, onClick, video }: { children: React.ReactNode; label: string; onClick: () => void; video?: boolean }) {
-  return (
-    <button onClick={onClick} title={label} style={{
-      display: "flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 8,
-      background: video ? "rgba(139,107,62,0.12)" : "rgba(78,173,135,0.12)",
-      color: video ? GOLD : GREEN,
-      border: `1px solid ${video ? "rgba(139,107,62,0.3)" : "rgba(78,173,135,0.3)"}`,
-      cursor: "pointer", fontFamily: "var(--font-ui)",
-    }}>{children}</button>
   );
 }
 

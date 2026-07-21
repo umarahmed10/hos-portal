@@ -92,7 +92,7 @@ export function ClientCommsUI({ code, clientName, slug, vapidPublicKey }: Props)
   }
 
   return (
-    <div style={{ background: BG, minHeight: "100vh", color: TEXT, display: "flex", flexDirection: "column" }}>
+    <div style={{ background: BG, height: "100dvh", overflow: "hidden", color: TEXT, display: "flex", flexDirection: "column" }}>
       {/* Top bar — Discord-style header */}
       <div style={{
         padding: "12px 16px", borderBottom: `1px solid ${BORDER}`,
