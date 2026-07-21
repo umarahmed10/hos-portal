@@ -265,8 +265,9 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
 
   return (
     <div style={{
-      background: SURF, border: `1px solid ${BORDER}`, borderRadius: 12,
+      background: SURF,
       display: "flex", flexDirection: "column", height: "100%", minHeight: 300,
+      flex: 1, width: "100%", minWidth: 0,
     }}>
       <div style={{
         padding: "12px 16px", borderBottom: `1px solid ${BORDER}`,

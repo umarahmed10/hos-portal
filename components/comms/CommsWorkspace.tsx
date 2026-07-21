@@ -62,36 +62,40 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
     "Calling…";
 
   const controlBar = (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-      padding: "10px 14px",
-    }}>
-      <CtrlBtn label={call.muted ? "Unmute" : "Mute"} active={!call.muted} danger={call.muted} onClick={call.toggleMute} disabled={state === "reconnecting"}>
-        {call.muted ? <MicOff /> : <Mic />}
-      </CtrlBtn>
-      <CtrlBtn label={call.cameraOn ? "Stop video" : "Start video"} active={call.cameraOn} onClick={call.toggleCamera} disabled={state === "reconnecting"}>
-        <Cam />
-      </CtrlBtn>
-      <CtrlBtn label={call.screenOn ? "Stop share" : "Share screen"} active={call.screenOn} onClick={call.toggleScreenShare} disabled={state === "reconnecting"}>
-        <Screen />
-      </CtrlBtn>
-      <VolumeControls room={call.room} audioEls={call.audioEls} />
-      <CtrlBtn label={fullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={() => setFullscreen(f => !f)}>
-        {fullscreen ? <Minimize /> : <Maximize />}
-      </CtrlBtn>
-      <CtrlBtn label={chatOpen ? "Hide chat" : "Show chat"} active={chatOpen} onClick={() => setChatOpen(o => !o)}>
-        <ChatIcon />
-      </CtrlBtn>
-      <CtrlBtn label="Leave call" danger onClick={call.disconnect}>
-        <PhoneOff />
-      </CtrlBtn>
+    <div style={{ display: "flex", justifyContent: "center", padding: "12px 14px", animation: "barUp 260ms ease-out" }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+        background: "rgba(22,22,22,0.92)", border: `1px solid ${BORDER}`, borderRadius: 999,
+        boxShadow: "0 8px 30px rgba(0,0,0,0.45)", backdropFilter: "blur(10px)",
+      }}>
+        <CtrlBtn label={call.muted ? "Unmute" : "Mute"} active={!call.muted} danger={call.muted} onClick={call.toggleMute} disabled={state === "reconnecting"}>
+          {call.muted ? <MicOff /> : <Mic />}
+        </CtrlBtn>
+        <CtrlBtn label={call.cameraOn ? "Stop video" : "Start video"} active={call.cameraOn} onClick={call.toggleCamera} disabled={state === "reconnecting"}>
+          <Cam />
+        </CtrlBtn>
+        <CtrlBtn label={call.screenOn ? "Stop share" : "Share screen"} active={call.screenOn} onClick={call.toggleScreenShare} disabled={state === "reconnecting"}>
+          <Screen />
+        </CtrlBtn>
+        <VolumeControls room={call.room} audioEls={call.audioEls} />
+        <CtrlBtn label={fullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={() => setFullscreen(f => !f)}>
+          {fullscreen ? <Minimize /> : <Maximize />}
+        </CtrlBtn>
+        <CtrlBtn label={chatOpen ? "Hide chat" : "Show chat"} active={chatOpen} onClick={() => setChatOpen(o => !o)}>
+          <ChatIcon />
+        </CtrlBtn>
+        <span style={{ width: 1, height: 24, background: BORDER, margin: "0 2px" }} />
+        <CtrlBtn label="Leave call" danger onClick={call.disconnect}>
+          <PhoneOff />
+        </CtrlBtn>
+      </div>
     </div>
   );
 
   const stageHeader = (
     <div style={{
       display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
-      borderBottom: `1px solid ${BORDER}`, background: SURF, flexShrink: 0,
+      borderBottom: `1px solid ${BORDER}`, background: "#0F0F0F", flexShrink: 0,
     }}>
       <span style={{ width: 8, height: 8, borderRadius: "50%", background: state === "reconnecting" ? GOLD : GREEN, animation: state === "reconnecting" ? "pulse 1s infinite" : undefined }} />
       <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>{statusLabel}</span>
@@ -123,20 +127,22 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
   // ── In-call: stage + chat rail ──
   if (inCall) {
     return (
-      <div className="comms-ws" style={{ display: "flex", height: "100%", minHeight: 0, background: BG }}>
+      <div className="comms-ws" style={{ flex: 1, width: "100%", minWidth: 0, display: "flex", height: "100%", minHeight: 0, background: "#0A0A0A" }}>
         <div className="comms-ws-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           {stageHeader}
           <CallStage call={call} me={me} />
-          <div style={{ borderTop: `1px solid ${BORDER}`, background: SURF, flexShrink: 0 }}>
+          <div style={{ flexShrink: 0, background: "#0A0A0A" }}>
             {controlBar}
           </div>
         </div>
         {chatOpen && (
-          <aside className="comms-ws-chat" style={{ width: 360, flexShrink: 0, borderLeft: `1px solid ${BORDER}`, minHeight: 0, display: "flex" }}>
+          <aside className="comms-ws-chat" style={{ width: 360, flexShrink: 0, borderLeft: `1px solid ${BORDER}`, minHeight: 0, display: "flex", background: BG, animation: "railIn 240ms ease-out" }}>
             {chat}
           </aside>
         )}
         <style>{`
+          @keyframes barUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes railIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
           @media (max-width: 820px) {
             .comms-ws { flex-direction: column; }
             .comms-ws-chat { width: 100% !important; border-left: none !important; border-top: 1px solid ${BORDER}; min-height: 240px; }
@@ -148,7 +154,7 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
 
   // ── Idle: chat + call-start header (Discord DM header) ──
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: BG }}>
+    <div style={{ flex: 1, width: "100%", minWidth: 0, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: BG }}>
       <div style={{
         display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
         borderBottom: `1px solid ${BORDER}`, background: SURF, flexShrink: 0,
@@ -174,7 +180,7 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
           RTC Connecting…
         </div>
       )}
-      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex" }}>
         {chat}
       </div>
     </div>
@@ -200,11 +206,17 @@ function CtrlBtn({ children, label, active, danger, onClick, disabled }: {
   if (danger) { bg = RED; color = "#fff"; border = "none"; }
   else if (active) { bg = "rgba(78,173,135,0.14)"; color = GREEN; border = `1px solid rgba(78,173,135,0.3)`; }
   return (
-    <button onClick={onClick} disabled={disabled} aria-label={label} title={label} style={{
-      width: 42, height: 42, borderRadius: 10, background: bg, color, border,
-      cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1,
-      display: "flex", alignItems: "center", justifyContent: "center", transition: "all 140ms",
-    }}>{children}</button>
+    <button
+      onClick={onClick} disabled={disabled} aria-label={label} title={label}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.transform = "translateY(-2px)"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; }}
+      style={{
+        width: 44, height: 44, borderRadius: 12, background: bg, color, border,
+        cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        transition: "transform 140ms var(--ease-spring, ease), background 140ms, color 140ms",
+      }}
+    >{children}</button>
   );
 }
 
