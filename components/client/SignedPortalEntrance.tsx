@@ -73,6 +73,7 @@ export function SignedPortalEntrance({ doc }: Props) {
           lineHeight:    1.0,
           color:         TEXT,
           marginBottom:  32,
+          animation:     "slideUp 600ms var(--ease-out) both 120ms",
         }}>
           You&apos;re in.
         </h1>
@@ -81,9 +82,22 @@ export function SignedPortalEntrance({ doc }: Props) {
           "Agreement Signed",
           "Invoice Confirmed",
           "Campaign Setup Initiated",
-        ].map(item => (
-          <div key={item} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, justifyContent: "center" }}>
-            <span style={{ color: GREEN, fontWeight: 600, fontSize: 16 }}>✓</span>
+        ].map((item, i) => (
+          <div key={item} style={{
+            display: "flex", alignItems: "center", gap: 12, marginBottom: 12, justifyContent: "center",
+            animation: "slideUp 500ms var(--ease-out) both",
+            animationDelay: `${360 + i * 160}ms`,
+          }}>
+            <span style={{
+              width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+              background: "rgba(78,173,135,0.15)", border: "1px solid rgba(78,173,135,0.4)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              animation: "scalePop 400ms var(--spring) both", animationDelay: `${420 + i * 160}ms`,
+            }}>
+              <svg width="9" height="8" viewBox="0 0 8 7" fill="none">
+                <polyline points="1,3.5 3,5.5 7,1" stroke={GREEN} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
             <span style={{ fontFamily: BODY, fontSize: 15, color: TEXT }}>{item}</span>
           </div>
         ))}
