@@ -6,7 +6,7 @@
 //     centered, so a camera is never zoom-cropped into a tall container.
 // Tiles: camera (cover-fill inside a true 16:9 box, so no distortion) or avatar,
 // with speaking ring, name pill, mute + net badges, and a fade/scale entrance.
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { Track, ConnectionQuality } from "livekit-client";
 import { TEXT, MUTED, GREEN, GOLD, RED } from "@/lib/styles";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
@@ -27,7 +27,9 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function StreamVideo({ track, fit, mirror }: { track: Track; fit: "cover" | "contain"; mirror: boolean }) {
+// Memoized so a speaking-state change on one participant never re-renders (or
+// re-attaches) another participant's <video>. Props are stable while the track is.
+const StreamVideo = memo(function StreamVideo({ track, fit, mirror }: { track: Track; fit: "cover" | "contain"; mirror: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -48,7 +50,7 @@ function StreamVideo({ track, fit, mirror }: { track: Track; fit: "cover" | "con
       }}
     />
   );
-}
+});
 
 export function CallStage({ call, me, myName }: Props) {
   const {
