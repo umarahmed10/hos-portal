@@ -4,8 +4,10 @@ import { getPortalSession }   from "@/lib/portal-auth";
 import { getDocBySlug }       from "@/lib/data-access";
 import { AutoRefresh }        from "@/components/client/AutoRefresh";
 import { CountUp }            from "@/components/client/CountUp";
+import { InsightStrip }       from "@/components/client/InsightStrip";
+import { buildInsights }      from "@/lib/insights";
 import { money, fmtDate, fmtDateShort } from "@/lib/utils";
-import { BORDER, MUTED, TEXT } from "@/lib/styles";
+import { BORDER, MUTED, TEXT, GOLD } from "@/lib/styles";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -62,9 +64,32 @@ export default async function PortalDashboardPage({ params }: Props) {
   const firstCallDate = new Date(launchBase.getTime() + 3  * 86400 * 1000);
   const lastCallDate  = new Date(launchBase.getTime() + 7  * 86400 * 1000);
 
+  // The "daily read" — honest, system-generated intelligence briefing.
+  const dailyRead = buildInsights({
+    hasCallData, isPaid, callsTotal, callsQual, jobsBooked, qualRate,
+    revenue, netROI, adSpend, monthlyBudget, ratePerCall, launchDate,
+  });
+
+  // Ownership framing — the portal is THEIRS, not ours.
+  const firstName   = doc.name?.trim().split(/\s+/)[0] ?? "there";
+  const growthTitle = doc.company ? `${doc.company} Growth Center` : `${firstName}'s Growth Center`;
+
   return (
-    <div style={{ animation: "fadeIn 280ms var(--ease-out)" }}>
+    <div style={{ animation: "fadeIn 280ms var(--ease-out)" }} className="stagger">
       <AutoRefresh intervalMs={30000} />
+
+      {/* Ownership header — this is your growth center */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: GOLD, marginBottom: 6 }}>
+          {isPaid && hasCallData ? "Live" : isPaid ? "Deploying" : "Getting set up"}
+        </div>
+        <h1 style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontWeight: 400, fontSize: "clamp(26px, 4vw, 36px)", letterSpacing: "0.005em", color: TEXT, lineHeight: 1.1, margin: 0 }}>
+          {growthTitle}
+        </h1>
+      </div>
+
+      {/* Daily read — perceived intelligence */}
+      <InsightStrip read={dailyRead} title="Daily read" />
 
       {hasCallData ? (
         /* ══════════════════════════════════════════
@@ -78,7 +103,7 @@ export default async function PortalDashboardPage({ params }: Props) {
               border:       "1px solid rgba(139,107,62,0.18)",
               borderRadius: 12, padding: "28px 28px 24px", marginBottom: 16,
             }}>
-              <div style={sL}>Estimated ROI This Month</div>
+              <div style={sL}>Your ROI · This Month</div>
               <CountUp
                 value={netROI}
                 money
