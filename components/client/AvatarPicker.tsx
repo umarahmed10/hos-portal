@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { compressImage, readUploadResponse } from "@/lib/image";
-import { BORDER, MUTED, TEXT, GOLD, SURF_2 } from "@/lib/styles";
+import { TEXT, GOLD, SURF_2 } from "@/lib/styles";
 
 interface Props {
   code: string;
@@ -20,6 +20,7 @@ function initials(name: string): string {
 export function AvatarPicker({ code, name, size = 36 }: Props) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [hover, setHover] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -63,17 +64,22 @@ export function AvatarPicker({ code, name, size = 36 }: Props) {
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
         aria-label="Change avatar"
-        title="Change avatar"
+        title="Change photo"
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
         style={{
           width: size, height: size, borderRadius: "50%",
           overflow: "hidden", cursor: uploading ? "wait" : "pointer",
-          border: `2px solid ${BORDER}`, padding: 0,
-          background: SURF_2, position: "relative",
+          border: "none", padding: 0,
+          background: avatarUrl ? "#000" : SURF_2, position: "relative",
           display: "flex", alignItems: "center", justifyContent: "center",
-          transition: "border-color 200ms",
+          // Soft ring instead of a heavy graphite border — reads premium.
+          boxShadow: hover
+            ? `0 0 0 2px ${GOLD}, 0 4px 12px rgba(0,0,0,0.4)`
+            : `0 0 0 1px rgba(243,241,236,0.12), 0 2px 6px rgba(0,0,0,0.3)`,
+          transform: hover && !uploading ? "scale(1.05)" : "scale(1)",
+          transition: "box-shadow 180ms, transform 180ms var(--ease-spring, ease)",
         }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = GOLD; }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; }}
       >
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -84,40 +90,40 @@ export function AvatarPicker({ code, name, size = 36 }: Props) {
           />
         ) : (
           <span style={{
-            fontSize: size * 0.35, fontWeight: 700, color: TEXT,
+            fontSize: size * 0.36, fontWeight: 700, color: TEXT,
             fontFamily: "var(--font-ui)", letterSpacing: "0.02em",
           }}>{initials(name)}</span>
         )}
 
-        {/* Edit overlay on hover */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "rgba(0,0,0,0.5)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          opacity: 0, transition: "opacity 150ms",
-          borderRadius: "50%",
-        }}
-          onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
-          onMouseLeave={e => { e.currentTarget.style.opacity = "0"; }}
-        >
-          <svg width={size * 0.3} height={size * 0.3} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-            <circle cx="12" cy="13" r="4" />
-          </svg>
-        </div>
-      </button>
+        {/* Camera badge — bottom-right, appears on hover (modern avatar editors) */}
+        {!uploading && (
+          <span style={{
+            position: "absolute", bottom: -1, right: -1,
+            width: Math.max(14, size * 0.42), height: Math.max(14, size * 0.42), borderRadius: "50%",
+            background: GOLD, border: "2px solid #111111",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            opacity: hover ? 1 : 0, transform: hover ? "scale(1)" : "scale(0.6)",
+            transition: "opacity 160ms, transform 160ms var(--ease-spring, ease)",
+          }}>
+            <svg width={size * 0.22} height={size * 0.22} viewBox="0 0 24 24" fill="none" stroke="#111111" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+              <circle cx="12" cy="13" r="3.5" />
+            </svg>
+          </span>
+        )}
 
-      {uploading && (
-        <div style={{
-          position: "absolute", inset: 0, borderRadius: "50%",
-          background: "rgba(0,0,0,0.6)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}>
-            <path d="M21 12a9 9 0 11-6.219-8.56" />
-          </svg>
-        </div>
-      )}
+        {uploading && (
+          <span style={{
+            position: "absolute", inset: 0, borderRadius: "50%",
+            background: "rgba(0,0,0,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <svg width={size * 0.42} height={size * 0.42} viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="2.5" style={{ animation: "spin 1s linear infinite" }}>
+              <path d="M21 12a9 9 0 11-6.219-8.56" />
+            </svg>
+          </span>
+        )}
+      </button>
     </div>
   );
 }
