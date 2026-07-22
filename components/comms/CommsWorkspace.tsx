@@ -34,10 +34,8 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
   const [dismissed, setDismissed] = useState(false);
   const ringStopRef = useRef<(() => void) | null>(null);
 
-  const { state, inCall, seconds, remote, remoteSpeaking, peerName: livePeer, localQuality, remoteQuality, error } = call;
+  const { state, inCall, startAt, remote, remoteSpeaking, peerName: livePeer, localQuality, remoteQuality, error } = call;
   const shownPeer = livePeer && livePeer !== "them" ? livePeer : peerName;
-  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
-  const ss = String(seconds % 60).padStart(2, "0");
 
   // Auto-hide controls in fullscreen
   useEffect(() => {
@@ -140,7 +138,7 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
       <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>{statusLabel}</span>
       <NetBars quality={localQuality} />
       {remote && <NetBars quality={remoteQuality} />}
-      <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 600, fontFamily: "var(--font-mono)", color: MUTED, letterSpacing: "0.06em" }}>{mm}:{ss}</span>
+      <CallTimer startAt={startAt} />
     </div>
   );
 
@@ -290,6 +288,21 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
       </div>
     </div>
   );
+}
+
+// Self-contained clock — ticks its own state so the whole call tree (video
+// tiles included) no longer re-renders every second.
+function CallTimer({ startAt }: { startAt: number }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    if (!startAt) return;
+    const t = setInterval(() => force(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [startAt]);
+  const secs = startAt ? Math.max(0, Math.floor((Date.now() - startAt) / 1000)) : 0;
+  const mm = String(Math.floor(secs / 60)).padStart(2, "0");
+  const ss = String(secs % 60).padStart(2, "0");
+  return <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 600, fontFamily: "var(--font-mono)", color: MUTED, letterSpacing: "0.06em" }}>{mm}:{ss}</span>;
 }
 
 function CtrlBtn({ children, label, active, danger, onClick, disabled }: {

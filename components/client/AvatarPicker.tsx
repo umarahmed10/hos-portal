@@ -1,5 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { compressImage, readUploadResponse } from "@/lib/image";
 import { BORDER, MUTED, TEXT, GOLD, SURF_2 } from "@/lib/styles";
 
 interface Props {
@@ -30,14 +32,22 @@ export function AvatarPicker({ code, name, size = 36 }: Props) {
   const upload = useCallback(async (file: File) => {
     setUploading(true);
     try {
+      // Downscale to a small avatar so any phone photo uploads fast and never
+      // trips the platform body-size limit.
+      const small = await compressImage(file, 512, 0.85);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", small);
       form.append("code", code);
       const res = await fetch("/api/avatar", { method: "POST", body: form });
-      const j = await res.json();
-      if (j.ok) setAvatarUrl(j.data.url + "?t=" + Date.now());
-    } catch { /* silent */ }
-    finally { setUploading(false); if (inputRef.current) inputRef.current.value = ""; }
+      const result = await readUploadResponse(res);
+      if (result.ok) setAvatarUrl(result.data.url + "?t=" + Date.now());
+      else toast.error(result.error);
+    } catch {
+      toast.error("Couldn't upload that image. Please try another.");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
   }, [code]);
 
   return (

@@ -49,7 +49,6 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
   const [remoteSpeaking, setRemoteSpeaking] = useState(false);
   const [localSpeaking, setLocalSpeaking] = useState(false);
   const [peerName, setPeerName] = useState<string>(me === "admin" ? "them" : "HOS Team");
-  const [elapsedMs, setElapsedMs] = useState(0);
   const [remoteJoinedAt, setRemoteJoinedAt] = useState<number | null>(null);
   const startAtRef = useRef<number>(0);
   const talkStartRef = useRef<number | null>(null);
@@ -320,13 +319,6 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoJoin, code]);
 
-  // Elapsed timer
-  useEffect(() => {
-    if (state !== "connected") return;
-    const t = setInterval(() => setElapsedMs(Date.now() - startAtRef.current), 1000);
-    return () => clearInterval(t);
-  }, [state]);
-
   // Solo auto-disconnect
   useEffect(() => {
     if (soloTimerRef.current) { clearTimeout(soloTimerRef.current); soloTimerRef.current = null; }
@@ -340,15 +332,16 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, remote]);
 
-  const talkStart = remoteJoinedAt ?? startAtRef.current;
-  const seconds = state === "connected" && (elapsedMs || talkStart)
-    ? Math.max(0, Math.floor((Date.now() - talkStart) / 1000)) : 0;
+  // Timestamp the call started counting from — a self-ticking <CallTimer> renders
+  // the clock so the whole call tree no longer re-renders every second.
+  const startAt = (state === "connected" || state === "reconnecting")
+    ? (remoteJoinedAt ?? startAtRef.current) : 0;
 
   return {
     // state
     state, error, muted, cameraOn, screenOn,
     remote, remoteSpeaking, localSpeaking, peerName,
-    seconds, events, localQuality, remoteQuality,
+    startAt, events, localQuality, remoteQuality,
     // tracks
     localVideoTrack, remoteVideoTrack, screenTrack, remoteScreenTrack,
     // actions

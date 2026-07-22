@@ -125,9 +125,14 @@ function Tile({ p, small, two, idx = 0 }: { p: P; small?: boolean; two?: boolean
       ...size, aspectRatio: "16 / 9", position: "relative", borderRadius: 14, overflow: "hidden",
       background: "#161616",
       border: p.speaking ? `2px solid ${GREEN}` : "2px solid rgba(255,255,255,0.05)",
-      animation: p.speaking ? "speakGlow 1.4s ease-in-out infinite" : `tileIn 300ms ease-out ${idx * 60}ms both`,
-      boxShadow: "0 6px 26px rgba(0,0,0,0.45)",
-      transition: "border-color 160ms",
+      // Entrance runs ONCE (constant string → never restarts). Speaking is shown
+      // via border + a smooth box-shadow glow transition — NOT by swapping the
+      // animation, which used to re-play the fade-in and made the video blink.
+      animation: `tileIn 300ms ease-out ${idx * 60}ms both`,
+      boxShadow: p.speaking
+        ? `0 0 0 1px ${GREEN}, 0 0 20px 2px rgba(78,173,135,0.35)`
+        : "0 6px 26px rgba(0,0,0,0.45)",
+      transition: "border-color 180ms, box-shadow 220ms",
     }}>
       {p.camera
         ? <StreamVideo track={p.camera} fit="cover" mirror={p.mirror} />

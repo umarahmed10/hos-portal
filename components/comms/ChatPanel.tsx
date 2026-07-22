@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { RoomEvent, type DataPacket_Kind, type Room, type RemoteParticipant } from "livekit-client";
 import { toast } from "sonner";
+import { compressImage, readUploadResponse } from "@/lib/image";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 import { playSend, playReceive, playUploadComplete } from "@/lib/comms/sounds";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
@@ -233,15 +234,22 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
     if (uploading) return;
     setUploading(true);
     try {
+      // Compress images client-side so big phone photos don't exceed the
+      // platform request-body limit (which returns a non-JSON error).
+      const toSend = file.type.startsWith("image/") ? await compressImage(file, 1600, 0.82) : file;
+      if (toSend.size > 4 * 1024 * 1024) {
+        toast.error("That file is too large. Please use one under 4 MB.");
+        return;
+      }
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", toSend);
       form.append("code", code);
       form.append("asRole", me);
       const uploadRes = await fetch("/api/comms/upload", { method: "POST", body: form });
-      const uploadJson = await uploadRes.json();
-      if (!uploadJson.ok) throw new Error(uploadJson.error || "Upload failed");
+      const result = await readUploadResponse(uploadRes);
+      if (!result.ok) throw new Error(result.error);
 
-      const att: Attachment = uploadJson.data;
+      const att: Attachment = result.data as Attachment;
       const body = JSON.stringify(att);
 
       const optId = `opt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
