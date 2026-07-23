@@ -5,6 +5,7 @@ import { toast }     from "sonner";
 import { money }     from "@/lib/utils";
 import { css, BORDER, MUTED, TEXT } from "@/lib/styles";
 import { HOSLogo }   from "@/components/shared/HOSLogo";
+import { CsvImport } from "@/components/client/CsvImport";
 import type { Doc }  from "@/types";
 
 interface DailyEntry {
@@ -254,6 +255,12 @@ export function AdminStats({ doc, initialMetrics }: Props) {
           >
             {saving ? "Saving…" : "SAVE →"}
           </button>
+        </div>
+
+        {/* Bulk import from Google Ads CSV */}
+        <div style={sCard}>
+          <div style={SECTION_TITLE}>Import from Google Ads (CSV)</div>
+          <CsvImport docId={doc.id} onImported={() => router.refresh()} />
         </div>
 
         {/* Daily Entry */}
