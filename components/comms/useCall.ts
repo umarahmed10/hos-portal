@@ -211,7 +211,13 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
 
       await room.connect(data.url, data.token);
       try {
-        await room.localParticipant.setMicrophoneEnabled(true);
+        // Honor saved audio-processing prefs (CallSettings), defaulting to on.
+        const pref = (k: string) => { try { const v = localStorage.getItem(k); return v === null ? true : v === "1"; } catch { return true; } };
+        await room.localParticipant.setMicrophoneEnabled(true, {
+          noiseSuppression: pref("hos_ns"),
+          echoCancellation: pref("hos_ec"),
+          autoGainControl:  pref("hos_agc"),
+        });
       } catch (e) {
         if (isPermissionError(e)) toast.error("Microphone blocked. Allow mic access in your browser's site settings to be heard.");
         else toast.error("Couldn't access your microphone.");
@@ -346,7 +352,7 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
     localVideoTrack, remoteVideoTrack, screenTrack, remoteScreenTrack,
     // actions
     connect, disconnect, toggleMute, toggleCamera, toggleScreenShare,
-    // refs for VolumeControls
+    // refs for CallSettings (mic meter, output volume)
     room: roomRef.current, audioEls: audioElsRef.current,
     inCall: state === "connected" || state === "reconnecting",
   };

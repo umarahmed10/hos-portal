@@ -8,8 +8,7 @@ import type { Room } from "livekit-client";
 import { useCall } from "@/components/comms/useCall";
 import { CallStage, NetBars } from "@/components/comms/CallStage";
 import { ChatPanel } from "@/components/comms/ChatPanel";
-import { VolumeControls } from "@/components/comms/VolumeControls";
-import { DeviceSettings } from "@/components/comms/DeviceSettings";
+import { CallSettings } from "@/components/comms/CallSettings";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 import { playRingtone } from "@/lib/comms/sounds";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
@@ -113,8 +112,7 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
         <CtrlBtn label={call.screenOn ? "Stop share" : "Share screen"} active={call.screenOn} onClick={call.toggleScreenShare} disabled={state === "reconnecting"}>
           <Screen />
         </CtrlBtn>
-        <VolumeControls room={call.room} audioEls={call.audioEls} />
-        <DeviceSettings room={call.room} />
+        <CallSettings room={call.room} audioEls={call.audioEls} />
         <CtrlBtn label={fullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={() => setFullscreen(f => !f)}>
           {fullscreen ? <Minimize /> : <Maximize />}
         </CtrlBtn>
