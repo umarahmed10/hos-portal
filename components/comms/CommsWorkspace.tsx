@@ -90,18 +90,26 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
     return () => { stop = true; clearInterval(t); };
   }, [inCall, state, code, me]);
 
-  useEffect(() => { if (!incoming) setDismissed(false); }, [incoming]);
+  // Reset a decline once the room empties (a later call rings fresh).
+  useEffect(() => { if (!peerInCall) setDismissed(false); }, [peerInCall]);
 
-  const showIncoming = incoming && !dismissed && !inCall;
+  // Show the Discord-style call panel whenever the peer is in the call and you
+  // aren't. Ringing = a fresh incoming call (pulse + ringtone + decline); if you
+  // left an ongoing call it's a calm "rejoin" panel instead.
+  const callActive = peerInCall && !inCall && !dismissed;
+  const isRinging = callActive && incoming;
 
-  // Ringtone + haptics while an incoming call is pulsing.
   useEffect(() => {
-    if (showIncoming) {
+    if (isRinging) {
       ringStopRef.current = playRingtone();
       navigator.vibrate?.([400, 200, 400, 200, 600]);
     }
     return () => { ringStopRef.current?.(); ringStopRef.current = null; navigator.vibrate?.(0); };
-  }, [showIncoming]);
+  }, [isRinging]);
+
+  // Join handlers (voice, or straight into video like Discord's camera button).
+  const joinVoice = () => { setDismissed(false); void call.connect(); };
+  const joinVideo = async () => { setDismissed(false); await call.connect(); await call.toggleCamera(); };
 
   const chat = (
     <ChatPanel code={code} me={me} myName={myName} peerName={shownPeer} room={call.room} />
@@ -212,60 +220,82 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
     );
   }
 
-  // ── Incoming call — Discord-style: stage activates, caller avatar pulses ──
-  if (showIncoming) {
-    const callerName = me === "client" ? "HOS Team" : shownPeer;
-    const callerIsAdmin = me === "client";
-    const callerInitials = callerName.trim().split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join("").toUpperCase() || "?";
+  // ── Call panel (Discord DM style) — peer is in the call, you aren't.
+  // Fresh ring: pulsing peer avatar + ringtone + decline. If you left an ongoing
+  // call: calm panel with Join buttons. Messages stay below, full width.
+  if (callActive) {
+    const peerIsAdmin = me === "client";
+    const myIsAdmin = me === "admin";
+    const ini = (n: string) => n.trim().split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join("").toUpperCase() || "?";
+    const AvatarCircle = ({ isAdmin, name, pulse }: { isAdmin: boolean; name: string; pulse?: boolean }) => (
+      <div style={{ position: "relative", width: 96, height: 96, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {pulse && <>
+          <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${GREEN}`, animation: "ringPulse 1.5s ease-out infinite" }} />
+          <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${GREEN}`, animation: "ringPulse 1.5s ease-out infinite 0.5s" }} />
+        </>}
+        <div style={{ width: 84, height: 84, borderRadius: "50%", overflow: "hidden", background: "#1C1C1C", display: "flex", alignItems: "center", justifyContent: "center", animation: pulse ? "callerBob 1.5s ease-in-out infinite" : undefined }}>
+          {isAdmin
+            ? <HOSTeamAvatar size={72} />
+            : <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#2E2E2E", color: TEXT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700, fontFamily: "var(--font-ui)" }}>{ini(name)}</div>}
+        </div>
+      </div>
+    );
+    const SquareBtn = ({ bg, label, onClick, children, bob }: { bg: string; label: string; onClick: () => void; children: React.ReactNode; bob?: boolean }) => (
+      <button onClick={onClick} aria-label={label} title={label}
+        onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; }}
+        style={{
+          width: 72, height: 52, borderRadius: 16, background: bg, color: "#fff",
+          border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 6px 18px rgba(0,0,0,0.35)", transition: "transform 140ms",
+          animation: bob ? "acceptBob 1.6s ease-in-out infinite" : undefined,
+        }}>{children}</button>
+    );
     return (
-      <div className="comms-ws" style={{ flex: 1, width: "100%", minWidth: 0, display: "flex", height: "100%", minHeight: 0, background: "#0A0A0A" }}>
-        <div className="comms-ws-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, alignItems: "center", justifyContent: "center", gap: 26, padding: 24 }}>
-          <div style={{ fontSize: 11, color: GOLD, letterSpacing: "0.24em", textTransform: "uppercase", fontFamily: "var(--font-mono)", animation: "fadeIn 300ms ease-out" }}>
-            Incoming call
+      <div style={{ flex: 1, width: "100%", minWidth: 0, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: BG }}>
+        {/* Call panel */}
+        <div style={{
+          flexShrink: 0, background: "#0A0A0A", borderBottom: `1px solid ${BORDER}`,
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 18,
+          padding: "36px 24px 30px", animation: "fadeIn 240ms ease-out",
+        }}>
+          {isRinging && (
+            <div style={{ fontSize: 10, color: GOLD, letterSpacing: "0.24em", textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
+              Incoming call
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+            <AvatarCircle isAdmin={peerIsAdmin} name={shownPeer} pulse={isRinging} />
+            <AvatarCircle isAdmin={myIsAdmin} name={myName} />
           </div>
-          <div style={{ position: "relative", width: 128, height: 128, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${GREEN}`, animation: "ringPulse 1.5s ease-out infinite" }} />
-            <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${GREEN}`, animation: "ringPulse 1.5s ease-out infinite 0.5s" }} />
-            <div style={{
-              width: 108, height: 108, borderRadius: "50%", overflow: "hidden",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: "#161616", filter: "brightness(0.72)", animation: "callerBob 1.5s ease-in-out infinite",
-            }}>
-              {callerIsAdmin
-                ? <HOSTeamAvatar size={92} />
-                : <div style={{ width: 92, height: 92, borderRadius: "50%", background: "#2E2E2E", color: TEXT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700, fontFamily: "var(--font-ui)" }}>{callerInitials}</div>}
-            </div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: TEXT, fontFamily: "var(--font-ui)" }}>
+            {isRinging ? `${shownPeer} is calling…` : `${shownPeer} is in the call`}
           </div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: TEXT, fontFamily: "var(--font-ui)" }}>{callerName}</div>
-          <div style={{ fontSize: 13, color: MUTED }}>is calling you…</div>
-          <div style={{ display: "flex", gap: 26, marginTop: 6 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-              <button onClick={() => { setDismissed(true); }} aria-label="Decline"
-                style={{ width: 62, height: 62, borderRadius: "50%", background: RED, color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 20px rgba(201,106,106,0.4)" }}>
-                <PhoneOff />
-              </button>
-              <span style={{ fontSize: 11, color: MUTED }}>Decline</span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-              <button onClick={() => { setIncoming(false); void call.connect(); }} aria-label="Accept"
-                style={{ width: 62, height: 62, borderRadius: "50%", background: GREEN, color: "#0A0A0A", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 20px rgba(78,173,135,0.45)", animation: "acceptBob 1.6s ease-in-out infinite" }}>
-                <Phone />
-              </button>
-              <span style={{ fontSize: 11, color: MUTED }}>Accept</span>
-            </div>
+          <div style={{ display: "flex", gap: 14 }}>
+            <SquareBtn bg={GREEN} label="Join with video" onClick={() => { void joinVideo(); }}>
+              <Cam />
+            </SquareBtn>
+            <SquareBtn bg={GREEN} label={isRinging ? "Accept" : "Rejoin"} onClick={joinVoice} bob={isRinging}>
+              <Phone />
+            </SquareBtn>
+            {isRinging && (
+              <SquareBtn bg={RED} label="Decline" onClick={() => setDismissed(true)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </SquareBtn>
+            )}
           </div>
         </div>
-        {chatOpen && (
-          <aside className="comms-ws-chat" style={{ width: 360, flexShrink: 0, borderLeft: `1px solid ${BORDER}`, minHeight: 0, display: "flex", background: BG }}>
-            {chat}
-          </aside>
-        )}
+        {/* Messages below, full width (Discord DM layout) */}
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex" }}>
+          {chat}
+        </div>
         <style>{`
           @keyframes ringPulse { 0% { transform: scale(0.85); opacity: 0.9; } 100% { transform: scale(1.35); opacity: 0; } }
           @keyframes callerBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
           @keyframes acceptBob { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
           @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-          @media (max-width: 820px) { .comms-ws { flex-direction: column; } .comms-ws-chat { width: 100% !important; border-left: none !important; border-top: 1px solid ${BORDER}; min-height: 240px; } }
         `}</style>
       </div>
     );
