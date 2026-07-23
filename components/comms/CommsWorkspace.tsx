@@ -31,7 +31,13 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
   const [controlsVisible, setControlsVisible] = useState(true);
   const [incoming, setIncoming] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [peerInCall, setPeerInCall] = useState(false);
   const ringStopRef = useRef<(() => void) | null>(null);
+  // After YOU leave, don't treat the peer still sitting in the call as a NEW
+  // incoming ring — it's a call-in-progress you can rejoin. Cleared once the
+  // room empties (peer leaves), so their next call rings fresh.
+  const suppressRingRef = useRef(false);
+  const prevInCallRef = useRef(false);
 
   const { state, inCall, startAt, remote, remoteSpeaking, peerName: livePeer, localQuality, remoteQuality, error } = call;
   const shownPeer = livePeer && livePeer !== "them" ? livePeer : peerName;
@@ -57,15 +63,26 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
   // Incoming-call detection via LiveKit room presence — an open page reliably
   // hears a call without depending on push. If the peer is sitting in the room
   // and we haven't joined, we're being rung.
+  // Suppress the ring the moment you leave a call the peer is still in.
   useEffect(() => {
-    if (inCall || state === "connecting") { setIncoming(false); return; }
+    if (prevInCallRef.current && !inCall) suppressRingRef.current = true;
+    prevInCallRef.current = inCall;
+  }, [inCall]);
+
+  useEffect(() => {
+    if (inCall || state === "connecting") { setIncoming(false); setPeerInCall(false); return; }
     let stop = false;
     const poll = async () => {
       if (stop || document.visibilityState !== "visible") return;
       try {
         const r = await fetch(`/api/comms/call-state?code=${code}&asRole=${me}`);
         const j = await r.json();
-        if (!stop && j.ok) setIncoming(!!j.data.ringing);
+        if (stop || !j.ok) return;
+        const peerPresent = !!j.data.peerPresent;
+        setPeerInCall(peerPresent);
+        // Room emptied → any future presence is a genuinely new call.
+        if (!peerPresent) suppressRingRef.current = false;
+        setIncoming(!!j.data.ringing && !suppressRingRef.current);
       } catch { /* ignore */ }
     };
     void poll();
@@ -261,12 +278,14 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
         display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
         borderBottom: `1px solid ${BORDER}`, background: SURF, flexShrink: 0,
       }}>
-        <span style={{ fontSize: 12, color: MUTED, fontFamily: "var(--font-mono)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
-          Direct line
+        <span style={{ fontSize: 12, color: MUTED, fontFamily: "var(--font-mono)", letterSpacing: "0.12em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
+          {peerInCall
+            ? <><span style={{ width: 7, height: 7, borderRadius: "50%", background: GREEN, animation: "pulse 1.2s infinite" }} />{shownPeer} is in the call</>
+            : "Direct line"}
         </span>
         <button
           onClick={call.connect}
-          title={me === "admin" ? "Start a call — rings them" : "Start a call with the HOS team"}
+          title={peerInCall ? "Rejoin the call" : me === "admin" ? "Start a call — rings them" : "Start a call with the HOS team"}
           onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(78,173,135,0.28)"; }}
           onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
           style={{
@@ -277,7 +296,7 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
           }}
         >
           <Phone />
-          <span>Call</span>
+          <span>{peerInCall ? "Rejoin" : "Call"}</span>
         </button>
       </div>
       {error && <div style={{ fontSize: 12, color: RED, padding: "8px 16px" }}>{error}</div>}

@@ -55,14 +55,16 @@ const StreamVideo = memo(function StreamVideo({ track, fit, mirror }: { track: T
 export function CallStage({ call, me, myName }: Props) {
   const {
     localVideoTrack, remoteVideoTrack, screenTrack, remoteScreenTrack,
-    remoteSpeaking, localSpeaking, muted, peerName, remote,
+    remoteSpeaking, localSpeaking, muted, remoteMuted, peerName, remote,
     localQuality, remoteQuality,
   } = call;
 
   const meName = myName;
+  // The admin sees when the client mutes; the client never sees the admin's mute.
+  const showRemoteMute = me === "admin" && remoteMuted;
   const local: P = { key: "local", name: meName, isAdmin: me === "admin", camera: localVideoTrack, speaking: localSpeaking, muted, mirror: true, quality: localQuality, you: true };
   const remoteP: P | null = remote
-    ? { key: "remote", name: peerName, isAdmin: me !== "admin", camera: remoteVideoTrack, speaking: remoteSpeaking, muted: false, mirror: false, quality: remoteQuality }
+    ? { key: "remote", name: peerName, isAdmin: me !== "admin", camera: remoteVideoTrack, speaking: remoteSpeaking, muted: showRemoteMute, mirror: false, quality: remoteQuality }
     : null;
 
   const screenActive = remoteScreenTrack ?? screenTrack ?? null;

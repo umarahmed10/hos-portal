@@ -124,23 +124,33 @@ export async function insertMessage(
   kind:       "text" | "attachment" = "text",
 ): Promise<CommsMessage> {
   const client = db();
-  const row = { doc_code: docCode.toUpperCase(), sender_role: senderRole, body, kind };
+  const code = docCode.toUpperCase();
+  const { data, error } = await client
+    .from("comms_messages")
+    .insert({ doc_code: code, sender_role: senderRole, body, kind })
+    .select(MESSAGE_COLUMNS)
+    .single();
 
-  let { data, error } = await client.from("comms_messages").insert(row).select(MESSAGE_COLUMNS).single();
+  if (!error) return data as unknown as CommsMessage;
 
-  if (error && /column .*(kind|meta)/i.test(error.message)) {
-    ({ data, error } = await client
+  // The `kind`/`meta` column may be missing, OR a CHECK constraint may reject
+  // this kind (e.g. older schema only allows text/call). Either way, fall back
+  // to a plain row — attachments are still recognized by their JSON body at
+  // render time, so nothing is lost.
+  const isKindIssue = error.code === "23514" || /kind|meta/i.test(error.message);
+  if (isKindIssue) {
+    const retry = await client
       .from("comms_messages")
-      .insert(row)
+      .insert({ doc_code: code, sender_role: senderRole, body })
       .select("id, doc_code, sender_role, body, created_at, read_at")
-      .single());
-    if (!error && data) {
-      return { ...(data as unknown as Omit<CommsMessage, "kind" | "meta">), kind: "text", meta: null };
+      .single();
+    if (!retry.error && retry.data) {
+      // Stored without kind (DB default). Attachments are recognized by body.
+      return { ...(retry.data as unknown as Omit<CommsMessage, "kind" | "meta">), kind: "text", meta: null };
     }
   }
 
-  if (error) throw new Error(`[comms-data] insertMessage: ${error.message}`);
-  return data as unknown as CommsMessage;
+  throw new Error(`[comms-data] insertMessage: ${error.message}`);
 }
 
 export async function countUnread(docCode: string, forRole: CommsRole): Promise<number> {

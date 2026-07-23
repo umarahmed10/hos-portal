@@ -48,6 +48,7 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
   const [remote, setRemote] = useState<string | null>(null);
   const [remoteSpeaking, setRemoteSpeaking] = useState(false);
   const [localSpeaking, setLocalSpeaking] = useState(false);
+  const [remoteMuted, setRemoteMuted] = useState(false);
   const [peerName, setPeerName] = useState<string>(me === "admin" ? "them" : "HOS Team");
   const [remoteJoinedAt, setRemoteJoinedAt] = useState<number | null>(null);
   const startAtRef = useRef<number>(0);
@@ -85,6 +86,7 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
   const resetMedia = useCallback(() => {
     setRemoteSpeaking(false);
     setLocalSpeaking(false);
+    setRemoteMuted(false);
     setCameraOn(false);
     setScreenOn(false);
     setLocalVideoTrack(null);
@@ -124,7 +126,11 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
       if (data.peerName) setPeerName(data.peerName);
 
       const room = new Room({
-        adaptiveStream: true,
+        // adaptiveStream downscales received video to the on-screen element size —
+        // that's what made screen shares blurry (a 1440p share shown in a smaller
+        // tile got a low layer). Off = always deliver full published quality
+        // (Discord/Meet behavior), which is what a good connection expects.
+        adaptiveStream: false,
         dynacast: true,
         videoCaptureDefaults: { resolution: VideoPresets.h1080.resolution },
         audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -153,6 +159,7 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
         setRemote(null);
         setRemoteJoinedAt(null);
         setRemoteSpeaking(false);
+        setRemoteMuted(false);
         setRemoteVideoTrack(null);
         setRemoteScreenTrack(null);
         setRemoteQuality(ConnectionQuality.Unknown);
@@ -198,6 +205,14 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
         setRemoteSpeaking(speakers.some(s => s !== room.localParticipant));
         setLocalSpeaking(speakers.some(s => s === room.localParticipant));
       });
+      // Track the remote participant's mic mute so the admin can see when the
+      // client mutes (CallStage only surfaces this on the admin side).
+      room.on(RoomEvent.TrackMuted, (pub, participant) => {
+        if (pub.source === Track.Source.Microphone && participant !== room.localParticipant) setRemoteMuted(true);
+      });
+      room.on(RoomEvent.TrackUnmuted, (pub, participant) => {
+        if (pub.source === Track.Source.Microphone && participant !== room.localParticipant) setRemoteMuted(false);
+      });
       room.on(RoomEvent.Reconnecting, () => { setState("reconnecting"); addEvent("Reconnecting…", "info"); });
       room.on(RoomEvent.Reconnected, () => { setState("connected"); addEvent("Reconnected", "info"); });
       room.on(RoomEvent.Disconnected, () => {
@@ -235,6 +250,7 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
       if (existing) {
         setRemote(existing.identity);
         setRemoteJoinedAt(Date.now());
+        setRemoteMuted(existing.getTrackPublication(Track.Source.Microphone)?.isMuted ?? false);
         if (talkStartRef.current === null) talkStartRef.current = Date.now();
         addEvent(`${existing.name || existing.identity} is here`, "join");
         existing.videoTrackPublications.forEach((pub: RemoteTrackPublication) => {
@@ -346,7 +362,7 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
   return {
     // state
     state, error, muted, cameraOn, screenOn,
-    remote, remoteSpeaking, localSpeaking, peerName,
+    remote, remoteSpeaking, localSpeaking, remoteMuted, peerName,
     startAt, events, localQuality, remoteQuality,
     // tracks
     localVideoTrack, remoteVideoTrack, screenTrack, remoteScreenTrack,

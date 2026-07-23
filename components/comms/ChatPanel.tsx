@@ -337,10 +337,16 @@ export function ChatPanel({ code, me, myName = "You", peerName = "HOS Team", roo
             && prev.sender_role === m.sender_role
             && (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()) < GROUP_WINDOW_MS;
 
+          // Detect attachments by their JSON body (works whether the row was
+          // stored as kind="attachment" or fell back to "text"). Call rows are
+          // already handled above, so any message here is text/attachment.
           let att: Attachment | null = null;
-          if (m.kind === "attachment") {
-            try { att = JSON.parse(m.body); } catch { att = null; }
-          }
+          try {
+            const p = JSON.parse(m.body);
+            if (p && typeof p === "object" && typeof p.url === "string" && typeof p.filename === "string" && typeof p.type === "string" && "size" in p) {
+              att = p as Attachment;
+            }
+          } catch { att = null; }
 
           return (
             <div key={m.id}>

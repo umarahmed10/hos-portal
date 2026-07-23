@@ -48,6 +48,11 @@ export async function POST(req: Request) {
   if (!caller) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  const message = await insertMessage(code.toUpperCase(), asRole, body, kind === "attachment" ? "attachment" : "text");
-  return NextResponse.json({ ok: true, data: { message } });
+  try {
+    const message = await insertMessage(code.toUpperCase(), asRole, body, kind === "attachment" ? "attachment" : "text");
+    return NextResponse.json({ ok: true, data: { message } });
+  } catch (err) {
+    console.error("[comms/messages] insert failed:", err);
+    return NextResponse.json({ ok: false, error: "Could not send message." }, { status: 500 });
+  }
 }
