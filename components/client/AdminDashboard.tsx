@@ -14,6 +14,7 @@ import { StatusBadge }   from "@/components/server/StatusBadge";
 import { HOSLogo }       from "@/components/shared/HOSLogo";
 import { CopyButton }    from "./CopyButton";
 import { EventTimeline } from "./EventTimeline";
+import { AdminSettings } from "./AdminSettings";
 import { Search, Plus, Edit, Archive, Download, LogOut } from "@/components/shared/Icons";
 import type { Doc, DocEvent, PaymentStatus } from "@/types";
 
@@ -261,6 +262,7 @@ export function AdminDashboard({ initialDocs }: Props) {
               <Plus size={13} />
               <span className="admin-new-client-label">New Client</span>
             </button>
+            <AdminSettings />
             <button
               onClick={handleLogout}
               title="Log out"

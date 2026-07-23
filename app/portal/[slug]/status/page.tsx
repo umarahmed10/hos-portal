@@ -5,6 +5,8 @@ import { getPortalSession }    from "@/lib/portal-auth";
 import { getDocBySlug, logEvent } from "@/lib/data-access";
 import { AutoRefresh }         from "@/components/client/AutoRefresh";
 import { ProgressBanner }      from "@/components/client/ProgressBanner";
+import { PayButton }           from "@/components/client/PayButton";
+import { getAppSettings }      from "@/lib/app-settings";
 import { BODY, GREEN, GREEN_DIM, GREEN_BORDER, MUTED, TEXT, css, AMBER_DIM, AMBER_BORDER } from "@/lib/styles";
 import { headers }             from "next/headers";
 import { money }               from "@/lib/utils";
@@ -34,6 +36,7 @@ export default async function PortalStatusPage({ params }: Props) {
   const isSigned   = doc.status === "signed";
   const isPaid     = doc.payment_status === "paid";
   const isPartial  = doc.payment_status === "partially_paid";
+  const { payment_cutoff } = await getAppSettings();
 
   return (
     <div style={{ animation: "fadeIn 280ms var(--ease-out)" }} className="stagger">
@@ -101,24 +104,17 @@ export default async function PortalStatusPage({ params }: Props) {
               ? `You've paid ${money(doc.amount_paid)} of ${money(doc.invoice_total)}. Complete your payment to launch your campaign.`
               : "Campaign launch typically takes 3–5 business days after payment is received."}
           </p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {doc.payment_link && (
-              <a
-                href={doc.payment_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ ...css.btnP, display: "inline-flex", textDecoration: "none", padding: "13px 28px", fontSize: 14 }}
-              >
-                Pay now →
-              </a>
-            )}
-            <Link
-              href={`/portal/${slug}/invoices`}
-              style={{ ...css.btnS, display: "inline-flex", textDecoration: "none", padding: "12px 20px", fontSize: 13 }}
-            >
-              View invoice
-            </Link>
-          </div>
+          {doc.payment_link && (
+            <div style={{ marginBottom: 12 }}>
+              <PayButton paymentLink={doc.payment_link} amount={doc.invoice_total} cutoff={payment_cutoff} />
+            </div>
+          )}
+          <Link
+            href={`/portal/${slug}/invoices`}
+            style={{ ...css.btnS, display: "inline-flex", textDecoration: "none", padding: "12px 20px", fontSize: 13 }}
+          >
+            View invoice
+          </Link>
         </div>
       )}
 
