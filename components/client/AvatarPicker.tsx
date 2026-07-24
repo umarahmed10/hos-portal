@@ -52,7 +52,9 @@ export function AvatarPicker({ code, name, size = 36 }: Props) {
   }, [code]);
 
   return (
-    <div style={{ position: "relative", width: size, height: size }}>
+    // flexShrink 0 + fixed aspect: the header is a flex row, and without these
+    // the avatar compresses horizontally when space is tight → oval.
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <input
         ref={inputRef}
         type="file"
@@ -68,7 +70,9 @@ export function AvatarPicker({ code, name, size = 36 }: Props) {
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         style={{
-          width: size, height: size, borderRadius: "50%",
+          // minHeight beats globals' 44px tap-target rule, which was stretching
+          // this 32px button into a 32x44 oval.
+          width: size, height: size, minHeight: size, aspectRatio: "1 / 1", flexShrink: 0, borderRadius: "50%",
           overflow: "hidden", cursor: uploading ? "wait" : "pointer",
           border: "none", padding: 0,
           background: avatarUrl ? "#000" : SURF_2, position: "relative",
