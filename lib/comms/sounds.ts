@@ -184,6 +184,22 @@ export function playRingtone(): () => void {
   return stop;
 }
 
+// Recording started — two deliberate rising tones (formal, noticeable)
+export function playRecordingStart() {
+  try {
+    tone(660, 0.14, 0.12, "sine", 0);
+    tone(880, 0.2, 0.14, "sine", 0.16);
+  } catch { /* audio context not available */ }
+}
+
+// Recording stopped — descending pair
+export function playRecordingStop() {
+  try {
+    tone(880, 0.12, 0.1, "sine", 0);
+    tone(587, 0.18, 0.08, "sine", 0.14);
+  } catch { /* audio context not available */ }
+}
+
 export function playIncomingPing() {
   try {
     tone(880, 0.08, 0.12, "sine", 0);

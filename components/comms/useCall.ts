@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { postJSON } from "@/lib/comms/http";
 import {
   playJoin, playLeave, playConnected, playDisconnected,
-  playScreenShare, playScreenShareEnd, playMuteToggle,
+  playScreenShare, playScreenShareEnd, playMuteToggle, playRecordingStart,
 } from "@/lib/comms/sounds";
 
 function isPermissionError(e: unknown): boolean {
@@ -49,6 +49,8 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
   const [remoteSpeaking, setRemoteSpeaking] = useState(false);
   const [localSpeaking, setLocalSpeaking] = useState(false);
   const [remoteMuted, setRemoteMuted] = useState(false);
+  // The other side is recording this call (announced over the data channel).
+  const [remoteRecording, setRemoteRecording] = useState(false);
   const [peerName, setPeerName] = useState<string>(me === "admin" ? "them" : "HOS Team");
   const [remoteJoinedAt, setRemoteJoinedAt] = useState<number | null>(null);
   const startAtRef = useRef<number>(0);
@@ -87,6 +89,7 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
     setRemoteSpeaking(false);
     setLocalSpeaking(false);
     setRemoteMuted(false);
+    setRemoteRecording(false);
     setCameraOn(false);
     setScreenOn(false);
     setLocalVideoTrack(null);
@@ -160,6 +163,7 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
         setRemoteJoinedAt(null);
         setRemoteSpeaking(false);
         setRemoteMuted(false);
+        setRemoteRecording(false);
         setRemoteVideoTrack(null);
         setRemoteScreenTrack(null);
         setRemoteQuality(ConnectionQuality.Unknown);
@@ -204,6 +208,20 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
         setRemoteSpeaking(speakers.some(s => s !== room.localParticipant));
         setLocalSpeaking(speakers.some(s => s === room.localParticipant));
+      });
+      // Recording notices from the other side (Meet-style consent banner).
+      room.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+        if (!participant || topic !== "recording") return;
+        try {
+          const { active } = JSON.parse(new TextDecoder().decode(payload)) as { active: boolean };
+          setRemoteRecording(prev => {
+            if (active && !prev) {
+              playRecordingStart();
+              toast.info("This call is being recorded.");
+            }
+            return active;
+          });
+        } catch { /* ignore */ }
       });
       // Track the remote participant's mic mute so the admin can see when the
       // client mutes (CallStage only surfaces this on the admin side).
@@ -362,7 +380,7 @@ export function useCall({ code, me, autoJoin, onLeave, onRoom, onConnected }: Us
   return {
     // state
     state, error, muted, cameraOn, screenOn,
-    remote, remoteSpeaking, localSpeaking, remoteMuted, peerName,
+    remote, remoteSpeaking, localSpeaking, remoteMuted, remoteRecording, peerName,
     startAt, events, localQuality, remoteQuality,
     // tracks
     localVideoTrack, remoteVideoTrack, screenTrack, remoteScreenTrack,

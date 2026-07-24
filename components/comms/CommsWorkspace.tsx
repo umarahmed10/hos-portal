@@ -10,6 +10,7 @@ import { CallStage, NetBars } from "@/components/comms/CallStage";
 import { ChatPanel } from "@/components/comms/ChatPanel";
 import { CallSettings } from "@/components/comms/CallSettings";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
+import { useCallRecorder } from "@/lib/comms/recorder";
 import { playRingtone } from "@/lib/comms/sounds";
 import { BG, SURF, SURF_2, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 
@@ -39,8 +40,12 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
   const suppressRingRef = useRef(false);
   const prevInCallRef = useRef(false);
 
-  const { state, inCall, startAt, remote, remoteSpeaking, peerName: livePeer, localQuality, remoteQuality, error } = call;
+  const { state, inCall, startAt, remote, remoteSpeaking, remoteRecording, peerName: livePeer, localQuality, remoteQuality, error } = call;
   const shownPeer = livePeer && livePeer !== "them" ? livePeer : peerName;
+
+  // Call recording — admin only starts it; both sides see the notice banner.
+  const recorder = useCallRecorder(call.room, code);
+  const recordingActive = recorder.recording || remoteRecording;
 
   // Auto-hide controls in fullscreen
   useEffect(() => {
@@ -137,6 +142,16 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
         <CtrlBtn label={call.screenOn ? "Stop share" : "Share screen"} active={call.screenOn} onClick={call.toggleScreenShare} disabled={state === "reconnecting"}>
           <Screen />
         </CtrlBtn>
+        {me === "admin" && (
+          <CtrlBtn
+            label={recorder.recording ? "Stop recording" : "Record call"}
+            danger={recorder.recording}
+            onClick={() => (recorder.recording ? recorder.stop() : recorder.start())}
+            disabled={state === "reconnecting"}
+          >
+            <RecIcon active={recorder.recording} />
+          </CtrlBtn>
+        )}
         <CallSettings room={call.room} audioEls={call.audioEls} />
         <CtrlBtn label={fullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={() => setFullscreen(f => !f)}>
           {fullscreen ? <Minimize /> : <Maximize />}
@@ -165,6 +180,28 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
     </div>
   );
 
+  // Meet-style consent banner — shown to BOTH sides while recording is active.
+  const recordingBanner = recordingActive ? (
+    <div style={{
+      flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+      padding: "7px 16px", background: "rgba(201,106,106,0.12)",
+      borderBottom: "1px solid rgba(201,106,106,0.3)",
+      animation: "fadeIn 240ms ease-out",
+    }}>
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: RED, animation: "pulse 1.2s infinite", flexShrink: 0 }} />
+      <span style={{ fontSize: 12, fontWeight: 600, color: RED, fontFamily: "var(--font-ui)" }}>
+        {recorder.recording
+          ? `Recording — ${shownPeer} has been notified`
+          : "This call is being recorded"}
+      </span>
+      {recorder.recording && (
+        <span style={{ fontSize: 11, color: RED, fontFamily: "var(--font-mono)", opacity: 0.8 }}>
+          {String(Math.floor(recorder.seconds / 60)).padStart(2, "0")}:{String(recorder.seconds % 60).padStart(2, "0")}
+        </span>
+      )}
+    </div>
+  ) : null;
+
   // ── Fullscreen immersive stage (chat available as a slide-over rail) ──
   if (inCall && fullscreen) {
     return (
@@ -173,6 +210,7 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
           <div style={{ opacity: controlsVisible ? 1 : 0, transition: "opacity 300ms", pointerEvents: controlsVisible ? "auto" : "none" }}>
             {stageHeader}
           </div>
+          {recordingBanner}
           <CallStage call={call} me={me} myName={myName} />
           <div style={{
             opacity: controlsVisible ? 1 : 0, transition: "opacity 300ms",
@@ -198,6 +236,7 @@ export function CommsWorkspace({ code, me, myName, peerName, autoJoin, onConnect
       <div className="comms-ws" style={{ flex: 1, width: "100%", minWidth: 0, display: "flex", height: "100%", minHeight: 0, background: "#0A0A0A" }}>
         <div className="comms-ws-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           {stageHeader}
+          {recordingBanner}
           <CallStage call={call} me={me} myName={myName} />
           <div style={{ flexShrink: 0, background: "#0A0A0A" }}>
             {controlBar}
@@ -381,5 +420,15 @@ function MicOff() { return <svg width="16" height="16" viewBox="0 0 24 24" fill=
 function Cam() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>; }
 function Screen() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>; }
 function ChatIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>; }
+function RecIcon({ active }: { active?: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="4.5" fill="currentColor">
+        {active && <animate attributeName="opacity" values="1;0.35;1" dur="1.2s" repeatCount="indefinite" />}
+      </circle>
+    </svg>
+  );
+}
 function Maximize() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" /></svg>; }
 function Minimize() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" /></svg>; }
