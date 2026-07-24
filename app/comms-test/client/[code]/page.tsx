@@ -28,6 +28,14 @@ export default async function CommsClientPage({
       clientName={doc.name}
       slug={doc.slug ?? null}
       vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
+      snapshot={{
+        company:        doc.company ?? null,
+        status:         doc.status,
+        paymentStatus:  doc.payment_status,
+        callsTotal:     Number(doc.calls_total     ?? 0),
+        callsQualified: Number(doc.calls_qualified ?? 0),
+        jobsBooked:     Number(doc.jobs_booked     ?? 0),
+      }}
     />
   );
 }

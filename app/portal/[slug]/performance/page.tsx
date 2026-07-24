@@ -123,6 +123,43 @@ export default async function PortalPerformancePage({ params }: Props) {
         </div>
       )}
 
+      {/* 14-day trend — total calls (bronze) with qualified overlay (green) */}
+      {metrics.length > 1 && (() => {
+        const days = [...metrics].slice(0, 14).reverse();
+        const max = Math.max(...days.map(d => Number(d.calls_total ?? 0)), 1);
+        return (
+          <div style={{ background: "#1A1A1A", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "20px 24px", marginBottom: 16 }}>
+            <div style={{ ...sectionLabel, display: "flex", justifyContent: "space-between" }}>
+              <span>Call Trend — Last {days.length} Days</span>
+              <span style={{ display: "flex", gap: 12, letterSpacing: "0.08em" }}>
+                <span style={{ color: "#8B6B3E" }}>■ Total</span>
+                <span style={{ color: "#4EAD87" }}>■ Qualified</span>
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 96 }}>
+              {days.map(d => {
+                const total = Number(d.calls_total ?? 0);
+                const qual  = Number(d.calls_qualified ?? 0);
+                const hT = Math.max(total > 0 ? 8 : 2, Math.round((total / max) * 96));
+                const hQ = Math.max(qual  > 0 ? 6 : 0, Math.round((qual  / max) * 96));
+                return (
+                  <div key={d.date} title={`${new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} — ${total} calls · ${qual} qualified`}
+                    style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0 }}>
+                    <div style={{ position: "relative", width: "100%", maxWidth: 26, height: 96, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                      <div style={{ position: "absolute", bottom: 0, width: "100%", height: hT, background: "rgba(139,107,62,0.35)", border: "1px solid rgba(139,107,62,0.45)", borderRadius: "4px 4px 0 0" }} />
+                      {hQ > 0 && <div style={{ position: "absolute", bottom: 0, width: "100%", height: hQ, background: "rgba(78,173,135,0.55)", borderRadius: hQ >= hT ? "4px 4px 0 0" : 0 }} />}
+                    </div>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "#404040", whiteSpace: "nowrap" }}>
+                      {new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { day: "numeric" })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Daily breakdown */}
       {metrics.length > 0 && (
         <div style={{ background: "#1A1A1A", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "20px 24px" }}>

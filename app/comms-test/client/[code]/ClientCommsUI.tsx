@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CommsWorkspace }     from "@/components/comms/CommsWorkspace";
 import { IncomingCallModal }  from "@/components/comms/IncomingCallModal";
 import { HOSTeamAvatar }      from "@/components/comms/HOSTeamAvatar";
+import { CommsSidePanel, type CampaignSnapshot } from "@/components/comms/CommsSidePanel";
 import { usePushSubscription, type PushState } from "@/lib/comms/usePushSubscription";
 import { BG, SURF, BORDER, TEXT, MUTED, GOLD, GREEN } from "@/lib/styles";
 
@@ -12,16 +13,20 @@ interface Props {
   clientName:     string;
   slug?:          string | null;
   vapidPublicKey: string;
+  snapshot:       CampaignSnapshot;
 }
 
 type SessionState = "checking" | "unauth" | "ready";
 
-export function ClientCommsUI({ code, clientName, slug, vapidPublicKey }: Props) {
+export function ClientCommsUI({ code, clientName, slug, vapidPublicKey, snapshot }: Props) {
   const router = useRouter();
   const search = useSearchParams();
   const [session, setSession] = useState<SessionState>("checking");
   const [incoming, setIncoming] = useState<{ caller: string; expiresAt: number } | null>(null);
   const [inCall, setInCall] = useState(false);
+  // True while a LiveKit room is live (covers calls started from the workspace's
+  // own Call button too) — used to hide the side panel so the stage gets space.
+  const [roomLive, setRoomLive] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,7 +135,7 @@ export function ClientCommsUI({ code, clientName, slug, vapidPublicKey }: Props)
         <PushDot state={pushState} />
       </div>
 
-      {/* Discord-style comms workspace — call stage + chat rail */}
+      {/* Discord-style comms workspace + right context panel */}
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <CommsWorkspace
           code={code}
@@ -139,7 +144,9 @@ export function ClientCommsUI({ code, clientName, slug, vapidPublicKey }: Props)
           peerName="HOS Team"
           autoJoin={inCall}
           onLeave={() => setInCall(false)}
+          onRoom={room => setRoomLive(!!room)}
         />
+        {!roomLive && <CommsSidePanel code={code} slug={slug ?? null} snapshot={snapshot} />}
       </div>
 
       {incoming && !inCall && (

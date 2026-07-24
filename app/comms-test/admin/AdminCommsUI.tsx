@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { RosterEntry } from "@/lib/comms-data";
 import { toast } from "sonner";
 import { CommsWorkspace } from "@/components/comms/CommsWorkspace";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
@@ -22,12 +23,56 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
   const [autoJoin, setAutoJoin] = useState(false);
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [roster, setRoster] = useState<Record<string, RosterEntry>>({});
 
-  const filtered = clients.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.code.toLowerCase().includes(search.toLowerCase()) ||
-    (c.company?.toLowerCase().includes(search.toLowerCase()) ?? false)
-  );
+  // Discord DM-list data: last message preview + unread count per client.
+  useEffect(() => {
+    let stop = false;
+    const poll = async () => {
+      if (stop || document.visibilityState !== "visible") return;
+      try {
+        const r = await fetch("/api/comms/roster");
+        const j = await r.json();
+        if (!stop && j.ok) setRoster(j.data.roster);
+      } catch { /* best-effort */ }
+    };
+    void poll();
+    const t = setInterval(poll, 30_000);
+    return () => { stop = true; clearInterval(t); };
+  }, []);
+
+  const filtered = clients
+    .filter(c =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.code.toLowerCase().includes(search.toLowerCase()) ||
+      (c.company?.toLowerCase().includes(search.toLowerCase()) ?? false)
+    )
+    // Most recent conversation first (Discord order); no-history clients last.
+    .sort((a, b) => {
+      const ta = roster[a.code]?.last_at ?? "";
+      const tb = roster[b.code]?.last_at ?? "";
+      return tb.localeCompare(ta);
+    });
+
+  // Short human preview of a roster entry's last message.
+  function preview(entry: RosterEntry | undefined): string | null {
+    if (!entry) return null;
+    const mine = entry.last_role === "admin" ? "You: " : "";
+    if (entry.last_kind === "call") return `${mine}Call`;
+    try {
+      const p = JSON.parse(entry.last_body);
+      if (p && typeof p === "object" && typeof p.filename === "string") return `${mine}Attachment · ${p.filename}`;
+    } catch { /* plain text */ }
+    return mine + entry.last_body;
+  }
+
+  function timeAgo(iso: string): string {
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return "now";
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h`;
+    return `${Math.floor(s / 86400)}d`;
+  }
 
   // Ring the client's devices — fired automatically when the admin joins the
   // call (Discord model: you sit in the call, it rings them).
@@ -127,10 +172,17 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
 
           {filtered.map(c => {
             const isActive = active?.code === c.code;
+            const entry = roster[c.code];
+            const line = preview(entry) ?? `${c.code}${c.company ? ` · ${c.company}` : ""}`;
+            const unread = !isActive && (entry?.unread ?? 0) > 0 ? entry!.unread : 0;
             return (
               <button
                 key={c.code}
-                onClick={() => openChat(c)}
+                onClick={() => {
+                  openChat(c);
+                  // Optimistically clear the badge — opening the chat marks read.
+                  setRoster(r => entry ? { ...r, [c.code]: { ...entry, unread: 0 } } : r);
+                }}
                 style={{
                   display: "flex", alignItems: "center", gap: 10,
                   width: "100%", padding: "8px 10px", borderRadius: 6,
@@ -149,17 +201,34 @@ export function AdminCommsUI({ clients }: { clients: Client[] }) {
                   fontSize: 11, fontWeight: 700, fontFamily: "var(--font-ui)",
                 }}>{initials(c.name)}</div>
                 <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span style={{
+                      fontSize: 13, fontWeight: isActive || unread > 0 ? 600 : 400, color: TEXT,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0,
+                    }}>{c.name}</span>
+                    {entry && (
+                      <span style={{ fontSize: 9, color: SUBTLE, fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+                        {timeAgo(entry.last_at)}
+                      </span>
+                    )}
+                  </div>
                   <div style={{
-                    fontSize: 13, fontWeight: isActive ? 600 : 400, color: TEXT,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  }}>{c.name}</div>
-                  <div style={{
-                    fontSize: 10, color: SUBTLE, fontFamily: "var(--font-mono)",
+                    fontSize: 10.5, fontFamily: entry ? "var(--font-body)" : "var(--font-mono)",
+                    color: unread > 0 ? TEXT : SUBTLE,
+                    fontWeight: unread > 0 ? 500 : 400,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}>
-                    {c.code}{c.company ? ` · ${c.company}` : ""}
+                    {line}
                   </div>
                 </div>
+                {unread > 0 && (
+                  <span style={{
+                    minWidth: 18, height: 18, borderRadius: 9, flexShrink: 0,
+                    background: GOLD, color: "#111111",
+                    fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)",
+                    display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px",
+                  }}>{unread > 99 ? "99+" : unread}</span>
+                )}
               </button>
             );
           })}

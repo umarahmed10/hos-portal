@@ -153,6 +153,41 @@ export async function insertMessage(
   throw new Error(`[comms-data] insertMessage: ${error.message}`);
 }
 
+// Roster overview for the admin DM list: per client code, the last message and
+// how many client messages the admin hasn't read yet. One query, grouped here.
+export interface RosterEntry {
+  last_body: string;
+  last_kind: "text" | "call";
+  last_role: CommsRole;
+  last_at:   string;
+  unread:    number;
+}
+
+export async function getRoster(): Promise<Record<string, RosterEntry>> {
+  const { data, error } = await db()
+    .from("comms_messages")
+    .select("doc_code, sender_role, body, kind, created_at, read_at")
+    .order("created_at", { ascending: false })
+    .limit(400);
+  if (error || !data) return {};
+
+  const roster: Record<string, RosterEntry> = {};
+  for (const m of data as Array<{ doc_code: string; sender_role: CommsRole; body: string; kind: "text" | "call" | null; created_at: string; read_at: string | null }>) {
+    const code = m.doc_code;
+    if (!roster[code]) {
+      roster[code] = {
+        last_body: m.body,
+        last_kind: m.kind === "call" ? "call" : "text",
+        last_role: m.sender_role,
+        last_at:   m.created_at,
+        unread:    0,
+      };
+    }
+    if (m.sender_role === "client" && m.read_at === null) roster[code].unread++;
+  }
+  return roster;
+}
+
 export async function countUnread(docCode: string, forRole: CommsRole): Promise<number> {
   const code = docCode.toUpperCase();
   const otherRole = forRole === "admin" ? "client" : "admin";
