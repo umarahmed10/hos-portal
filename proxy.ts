@@ -65,15 +65,23 @@ export async function proxy(req: NextRequest) {
   // ── CSRF: reject cross-origin mutations to API routes ────────────────────
   if (pathname.startsWith("/api/") && ["POST", "PUT", "DELETE", "PATCH"].includes(req.method)) {
     const origin = req.headers.get("origin");
-    const host = req.headers.get("host");
-    if (origin && host) {
+    const host   = req.headers.get("host");
+
+    if (origin) {
       try {
-        const originHost = new URL(origin).host;
-        if (originHost !== host) {
+        if (new URL(origin).host !== host) {
           return NextResponse.json({ ok: false, error: "CSRF rejected" }, { status: 403 });
         }
       } catch {
         return NextResponse.json({ ok: false, error: "Invalid origin" }, { status: 403 });
+      }
+    } else {
+      // No Origin header. Fail closed rather than skipping the check — but allow
+      // same-origin requests that browsers legitimately send without one, and
+      // server-to-server calls (which carry no Sec-Fetch-Site at all).
+      const site = req.headers.get("sec-fetch-site");
+      if (site && site !== "same-origin" && site !== "none") {
+        return NextResponse.json({ ok: false, error: "CSRF rejected" }, { status: 403 });
       }
     }
   }
@@ -116,6 +124,13 @@ export async function proxy(req: NextRequest) {
       const response = NextResponse.redirect(new URL(`/portal/${slug}`, req.url));
       response.cookies.set(PORTAL_COOKIE, "", { maxAge: 0, path: "/" });
       return response;
+    }
+
+    // Bind the session to the slug being requested. Every portal page already
+    // re-checks this, but enforcing it here makes the guarantee structural: a
+    // future page that forgets the check can't leak another tenant's data.
+    if (sessionSlug !== slug) {
+      return NextResponse.redirect(new URL(`/portal/${slug}`, req.url));
     }
 
     const res = NextResponse.next();

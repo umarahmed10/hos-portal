@@ -1,6 +1,7 @@
 // Post-signing confirmation page — shown after /client/[code]/sign completes.
 import { notFound }        from "next/navigation";
 import { getDocForClient, getDocEvents } from "@/lib/data-access";
+import { signPdfToken }      from "@/lib/pdf-token";
 import { DoneCountdown }      from "./DoneCountdown";
 import { ConfettiExplosion }  from "@/components/client/ConfettiExplosion";
 import { StatusTracker }      from "@/components/client/StatusTracker";
@@ -35,7 +36,8 @@ export default async function ClientDonePage({ params }: Props) {
 
   if (!doc) notFound();
 
-  const events = await getDocEvents(doc.id).catch(() => []);
+  const events   = await getDocEvents(doc.id).catch(() => []);
+  const pdfToken = await signPdfToken(doc.code);
 
   return (
     <div style={{ ...css.app, minHeight: "100vh" }}>
@@ -228,7 +230,7 @@ export default async function ClientDonePage({ params }: Props) {
         {/* PDF */}
         <div style={{ marginTop: 24 }}>
           <a
-            href={`/api/pdf?code=${doc.code}`}
+            href={`/api/pdf?code=${doc.code}&t=${pdfToken}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 12, color: MUTED, fontFamily: BODY, textDecoration: "none", opacity: 0.5 }}

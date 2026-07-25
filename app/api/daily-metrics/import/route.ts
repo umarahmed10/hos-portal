@@ -6,12 +6,26 @@ import { z }               from "zod";
 import { getAdminSession } from "@/lib/auth";
 import { createClient }    from "@supabase/supabase-js";
 
-const Row = z.object({
-  date:            z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  spend:           z.number().min(0).default(0),
-  calls_total:     z.number().int().min(0).default(0),
-  calls_qualified: z.number().int().min(0).default(0),
-});
+/** True only for a real calendar date — the regex alone accepts 2026-02-31. */
+function isRealDate(s: string): boolean {
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+const Row = z
+  .object({
+    date:            z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isRealDate, "Not a real calendar date"),
+    spend:           z.number().min(0).default(0),
+    calls_total:     z.number().int().min(0).default(0),
+    calls_qualified: z.number().int().min(0).default(0),
+  })
+  // These figures drive the client-facing dashboard and reports. A CSV with
+  // shifted columns would otherwise import "999 qualified of 5 calls".
+  .refine(r => r.calls_qualified <= r.calls_total, {
+    message: "calls_qualified cannot exceed calls_total",
+    path:    ["calls_qualified"],
+  });
 
 const Body = z.object({
   doc_id: z.string().uuid(),
@@ -35,6 +49,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Invalid import data", details: parsed.error.message }, { status: 400 });
   }
   const { doc_id, rows } = parsed.data;
+
+  // Confirm the target exists, so a stale/incorrect id returns 404 rather than
+  // a raw foreign-key violation surfaced as a 500.
+  const { data: target } = await db().from("docs").select("id").eq("id", doc_id).maybeSingle();
+  if (!target) {
+    return NextResponse.json({ ok: false, error: "Client not found" }, { status: 404 });
+  }
 
   // Collapse duplicate dates within the upload (keep the last occurrence).
   const byDate = new Map<string, typeof rows[number]>();

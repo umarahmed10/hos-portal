@@ -1,3 +1,15 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// In-memory fixed-window rate limiter.
+//
+// ⚠ SERVERLESS CAVEAT: this Map lives in one instance's memory. On Vercel each
+// lambda has its own copy and instances are recycled frequently, so the real
+// limit is (configured max × number of warm instances) and resets on cold start.
+// It raises the cost of brute force but does NOT hard-cap it.
+//
+// The credential endpoints (/api/auth, /api/portal-session) are the ones that
+// matter. For a real guarantee, back this with Upstash Redis or Vercel KV —
+// swap the store below; the rateLimit() signature stays the same.
+// ─────────────────────────────────────────────────────────────────────────────
 const store = new Map<string, { count: number; resetAt: number }>();
 
 let pruneScheduled = false;

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { BG, SURF, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
+import { SURF, BORDER, TEXT, MUTED, GOLD, GREEN, RED } from "@/lib/styles";
 import { playRingtone } from "@/lib/comms/sounds";
 import { HOSTeamAvatar } from "@/components/comms/HOSTeamAvatar";
 

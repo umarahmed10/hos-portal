@@ -1,6 +1,6 @@
 // Linear progress indicator for the multi-step sign flow.
 // Bronze fill bar with step dots + labels beneath.
-import { BODY, BORDER, GOLD, GOLD_DIM, GREEN, SUBTLE, TEXT } from "@/lib/styles";
+import { BODY, BORDER, GOLD, GREEN, SUBTLE, TEXT } from "@/lib/styles";
 
 interface Props {
   current: number;

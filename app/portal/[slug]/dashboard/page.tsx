@@ -7,7 +7,9 @@ import { CountUp }            from "@/components/client/CountUp";
 import { InsightStrip }       from "@/components/client/InsightStrip";
 import { buildInsights }      from "@/lib/insights";
 import { money, fmtDate, fmtDateShort } from "@/lib/utils";
-import { BORDER, MUTED, TEXT, GOLD } from "@/lib/styles";
+import { MUTED, TEXT, GOLD } from "@/lib/styles";
+
+export const metadata = { title: "Dashboard · HOS Client Portal" };
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -44,7 +46,6 @@ export default async function PortalDashboardPage({ params }: Props) {
   const adSpend       = Number(doc.ad_spend         ?? 0);
   const avgJobValue   = Number(doc.avg_job_value    ?? 0);
   const monthlyBudget = Number(doc.monthly_budget   ?? 0);
-  const callCap       = Number(doc.monthly_call_cap ?? 0);
   const ratePerCall   = Number(doc.rate_per_call    ?? 0);
 
   const isSigned    = doc.status === "signed";

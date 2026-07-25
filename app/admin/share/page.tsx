@@ -3,6 +3,8 @@ import { notFound }    from "next/navigation";
 import { getDocByCode, getDocEvents } from "@/lib/data-access";
 import { AdminShare }   from "@/components/client/AdminShare";
 
+export const metadata = { title: "Share · HOS Admin" };
+
 interface Props {
   searchParams: Promise<{ code?: string; sent?: string }>;
 }

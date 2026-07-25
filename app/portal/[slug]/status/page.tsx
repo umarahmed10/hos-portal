@@ -11,6 +11,8 @@ import { BODY, GREEN, GREEN_DIM, GREEN_BORDER, MUTED, TEXT, css, AMBER_DIM, AMBE
 import { headers }             from "next/headers";
 import { money }               from "@/lib/utils";
 
+export const metadata = { title: "Status · HOS Client Portal" };
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

@@ -6,14 +6,12 @@ import Link                 from "next/link";
 import { headers }          from "next/headers";
 import { getDocForClient, logEvent, recordFirstView } from "@/lib/data-access";
 import { getAdminSession }  from "@/lib/auth";
+import { signPdfToken }     from "@/lib/pdf-token";
 import { PortalEntranceGate } from "@/components/client/PortalEntranceGate";
 import { TrustBox }         from "@/components/client/TrustBox";
 import { ProgressBanner }   from "@/components/client/ProgressBanner";
 import { HOSLogo }          from "@/components/shared/HOSLogo";
-import {
-  BODY, BORDER, GOLD_DIM, GOLD_BORDER,
-  GREEN, MUTED, SURF, TEXT, MONO, css,
-} from "@/lib/styles";
+import { BORDER, GOLD_DIM, GOLD_BORDER, MUTED, TEXT, MONO, css } from "@/lib/styles";
 import { money, fmt }       from "@/lib/utils";
 
 interface Props {
@@ -31,6 +29,9 @@ export default async function ClientDocPage({ params }: Props) {
   const ua          = hdrs.get("user-agent") ?? null;
   const adminSess   = await getAdminSession();
   const isAdminView = !!adminSess;
+  // This flow is code-authenticated with no session, so the PDF link carries a
+  // short-lived token bound to this code.
+  const pdfToken    = await signPdfToken(doc.code);
 
   if (!isAdminView) {
     // Only log events for real client visits — not admin previews
@@ -51,14 +52,16 @@ export default async function ClientDocPage({ params }: Props) {
     <div style={{ ...css.app, paddingBottom: 80 }}>
       {/* Sticky exit button */}
       <div style={{ position: "fixed", top: 16, right: 20, zIndex: 1000 }}>
-        <a
+        <Link
           href="/"
           style={{
             fontFamily:     "var(--font-mono)",
             fontSize:       9,
             letterSpacing:  "0.12em",
             textTransform:  "uppercase",
-            color:          "#404040",
+            // Was #404040 — 1.82:1 against the near-black background, well under
+            // the 4.5:1 WCAG AA minimum for a functional control.
+            color:          MUTED,
             textDecoration: "none",
             padding:        "6px 12px",
             border:         "1px solid #2A2A2A",
@@ -67,7 +70,7 @@ export default async function ClientDocPage({ params }: Props) {
           }}
         >
           Exit
-        </a>
+        </Link>
       </div>
 
       <ProgressBanner doc={doc} />
@@ -184,7 +187,7 @@ export default async function ClientDocPage({ params }: Props) {
         {/* PDF always available */}
         <div style={{ textAlign: "center", marginTop: 20 }}>
           <a
-            href={`/api/pdf?code=${doc.code}`}
+            href={`/api/pdf?code=${doc.code}&t=${pdfToken}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontSize: 12, color: MUTED, fontFamily: "var(--font-body)", opacity: 0.5, textDecoration: "none" }}

@@ -1,8 +1,27 @@
 import { NextResponse }                       from "next/server";
 import { signAdminToken, buildSessionCookie } from "@/lib/auth";
+import { rateLimit }                          from "@/lib/rate-limit";
 import bcrypt                                  from "bcryptjs";
 
+function clientIp(req: Request): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown"
+  );
+}
+
 export async function POST(req: Request) {
+  // A single shared password guards the entire admin surface, so an unthrottled
+  // endpoint is a straightforward offline-speed brute force.
+  const rl = rateLimit(`auth:${clientIp(req)}`, { windowMs: 15 * 60_000, max: 5 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { ok: false, error: "Too many attempts. Try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+    );
+  }
+
   const { password } = await req.json().catch(() => ({}));
   if (!password) {
     return NextResponse.json({ ok: false, error: "Invalid password" }, { status: 401 });

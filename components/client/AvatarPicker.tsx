@@ -59,6 +59,7 @@ export function AvatarPicker({ code, name, size = 36 }: Props) {
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
+        aria-label="Upload profile photo"
         style={{ display: "none" }}
         onChange={e => { const f = e.target.files?.[0]; if (f) void upload(f); }}
       />

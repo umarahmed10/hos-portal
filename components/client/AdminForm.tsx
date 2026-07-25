@@ -4,7 +4,7 @@ import { useRouter }                    from "next/navigation";
 import { toast }                        from "sonner";
 import { generateAgreement }            from "@/lib/api-client";
 import { invTotal, interpolateTemplate } from "@/lib/utils";
-import { BG, BODY, BORDER, FONT, GREEN, MUTED, SUBTLE, AMBER, TEXT, css } from "@/lib/styles";
+import {BG, BODY, BORDER, MUTED, SUBTLE, AMBER, TEXT, css, GOLD_TEXT } from "@/lib/styles";
 import { SERVICE_TYPES, TERMS_TEMPLATES }   from "@/types";
 import { Loader2, Plus, Minus, Zap }        from "@/components/shared/Icons";
 import { HOSLogo }                          from "@/components/shared/HOSLogo";
@@ -247,7 +247,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
 
         {/* Doc type */}
         <div style={css.card}>
-          <div style={{ ...css.lbl, color: "rgba(139,107,62,0.5)", letterSpacing: "0.18em" }}>Document Type</div>
+          <div style={{ ...css.lbl, color: GOLD_TEXT, letterSpacing: "0.18em" }}>Document Type</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
             {(["both", "agreement", "invoice"] as DocType[]).map(t => (
               <button
@@ -276,7 +276,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
 
         {/* Client details */}
         <div style={css.card}>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "rgba(139,107,62,0.5)", textTransform: "uppercase", marginBottom: 16 }}>Client Details</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: GOLD_TEXT, textTransform: "uppercase", marginBottom: 16 }}>Client Details</div>
           <div className="admin-client-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
               <label style={css.lbl}>Name *</label>
@@ -333,7 +333,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
         {showAg && (
           <div style={css.card}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "rgba(139,107,62,0.5)", textTransform: "uppercase" }}>Service Agreement</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: GOLD_TEXT, textTransform: "uppercase" }}>Service Agreement</div>
             </div>
 
             <div style={{ marginBottom: 14 }}>
@@ -391,7 +391,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
         {/* Invoice */}
         {showInv && (
           <div style={css.card}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "rgba(139,107,62,0.5)", textTransform: "uppercase", marginBottom: 16 }}>Invoice</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: GOLD_TEXT, textTransform: "uppercase", marginBottom: 16 }}>Invoice</div>
 
             <div style={{ marginBottom: 14 }}>
               <label style={css.lbl}>Quick-add Service</label>
@@ -444,7 +444,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
         {/* Payment status — edit mode only */}
         {mode === "edit" && (
           <div style={css.card}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "rgba(139,107,62,0.5)", textTransform: "uppercase", marginBottom: 16 }}>Payment Status</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: GOLD_TEXT, textTransform: "uppercase", marginBottom: 16 }}>Payment Status</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
                 <label style={css.lbl}>Status</label>
@@ -472,7 +472,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
             </div>
             {paymentStatus === "paid" && parseFloat(amountPaid) < total && (
               <div style={{ marginTop: 10, fontSize: 12, color: AMBER, fontFamily: BODY }}>
-                ⚠ Amount collected ({parseFloat(amountPaid).toFixed(2)}) is less than invoice total ({total.toFixed(2)}). Set to "Partially Paid" or increase the amount.
+                ⚠ Amount collected ({parseFloat(amountPaid).toFixed(2)}) is less than invoice total ({total.toFixed(2)}). Set to &quot;Partially Paid&quot; or increase the amount.
               </div>
             )}
             <div style={{ marginTop: 14 }}>
@@ -485,7 +485,7 @@ export function AdminForm({ mode = "new", initialDoc }: Props) {
                 style={css.inp}
               />
               <div style={{ fontSize: 11, color: SUBTLE, marginTop: 4, fontFamily: BODY }}>
-                Shown to client as a "Pay Now" button in their portal.
+                Shown to client as a &quot;Pay Now&quot; button in their portal.
               </div>
             </div>
           </div>

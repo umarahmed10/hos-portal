@@ -3,6 +3,8 @@ import { redirect }         from "next/navigation";
 import { getPortalSession } from "@/lib/portal-auth";
 import { BODY, BORDER, FONT, MUTED, SUBTLE, SURF, TEXT, css } from "@/lib/styles";
 
+export const metadata = { title: "Campaigns · HOS Client Portal" };
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

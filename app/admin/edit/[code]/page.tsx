@@ -3,6 +3,8 @@ import { notFound }    from "next/navigation";
 import { getDocByCode } from "@/lib/data-access";
 import { AdminForm }    from "@/components/client/AdminForm";
 
+export const metadata = { title: "Edit client · HOS Admin" };
+
 interface Props {
   params: Promise<{ code: string }>;
 }

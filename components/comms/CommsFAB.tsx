@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BORDER, GOLD, BG, TEXT, GOLD_BORDER, GREEN } from "@/lib/styles";
+import { GOLD, BG, GOLD_BORDER, GREEN } from "@/lib/styles";
 
 export function CommsFAB({ code }: { code: string }) {
   const [unread, setUnread] = useState(0);

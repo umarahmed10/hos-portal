@@ -11,7 +11,7 @@ import { FloatingSupport }         from "@/components/client/FloatingSupport";
 import { CommsFAB }                from "@/components/comms/CommsFAB";
 import { IncomingCallListener }    from "@/components/comms/IncomingCallListener";
 import { AvatarPicker }            from "@/components/client/AvatarPicker";
-import { BORDER, BG, MUTED, TEXT } from "@/lib/styles";
+import { BG, MUTED, TEXT } from "@/lib/styles";
 
 interface Props {
   children: React.ReactNode;
@@ -74,7 +74,7 @@ export default async function PortalLayout({ children, params }: Props) {
               )}
             </div>
             <StatusBadge status={doc.status} />
-            <PortalLogoutButton slug={slug} />
+            <PortalLogoutButton />
           </div>
         </div>
       </div>

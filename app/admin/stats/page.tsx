@@ -4,6 +4,8 @@ import { getDocByCode }     from "@/lib/data-access";
 import { AdminStats }       from "@/components/client/AdminStats";
 import { createClient }     from "@supabase/supabase-js";
 
+export const metadata = { title: "Stats · HOS Admin" };
+
 interface Props {
   searchParams: Promise<{ code?: string }>;
 }

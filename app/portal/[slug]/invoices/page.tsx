@@ -12,6 +12,8 @@ import {
 import { money, fmt } from "@/lib/utils";
 import { headers }    from "next/headers";
 
+export const metadata = { title: "Invoices · HOS Client Portal" };
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

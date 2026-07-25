@@ -2,7 +2,7 @@
 // Portal entry UI — magic link auto-auth and code fallback.
 // Rendered by the server component page.tsx after session check.
 import { useState, useEffect } from "react";
-import { BODY, BORDER, DISPLAY, GOLD, MONO, MUTED, TEXT, css } from "@/lib/styles";
+import {BODY, BORDER, MUTED, TEXT, css, GOLD_TEXT } from "@/lib/styles";
 import { HOSLogo } from "@/components/shared/HOSLogo";
 
 function sanitizeCode(raw: string): string {
@@ -156,7 +156,7 @@ export function PortalEntryUI({ slug, magicToken }: Props) {
               fontFamily:    "var(--font-mono)",
               fontSize:      9,
               letterSpacing: "0.18em",
-              color:         "rgba(139,107,62,0.5)",
+              color:         GOLD_TEXT,
               textTransform: "uppercase",
               marginBottom:  16,
             }}>
@@ -186,7 +186,7 @@ export function PortalEntryUI({ slug, magicToken }: Props) {
               <div style={{ marginBottom: 14 }}>
                 <label style={{
                   ...css.lbl,
-                  color:         "rgba(139,107,62,0.5)",
+                  color:         GOLD_TEXT,
                   letterSpacing: "0.16em",
                 }}>
                   Access Code

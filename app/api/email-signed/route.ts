@@ -2,6 +2,8 @@
 import { NextResponse }       from "next/server";
 import { Resend }             from "resend";
 import { z }                  from "zod";
+import { signPdfToken }       from "@/lib/pdf-token";
+import { isInternalRequest, escapeHtml } from "@/lib/internal-auth";
 import { fmtDateTime, money } from "@/lib/utils";
 
 const Schema = z.object({
@@ -14,6 +16,12 @@ const Schema = z.object({
 });
 
 export async function POST(req: Request) {
+  // Sends to a caller-supplied address from our verified domain — must never be
+  // reachable from outside. Called only by /api/sign, server-side.
+  if (!isInternalRequest(req)) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   const body   = await req.json().catch(() => null);
   const parsed = Schema.safeParse(body);
   if (!parsed.success) {
@@ -25,10 +33,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "RESEND_API_KEY not configured" }, { status: 500 });
   }
 
-  const { to, name, company, code, invoiceTotal, signedAt } = parsed.data;
+  const { to, invoiceTotal, signedAt } = parsed.data;
+  // Escaped before reaching the template — these land directly in email markup.
+  const name    = escapeHtml(parsed.data.name);
+  const company = parsed.data.company ? escapeHtml(parsed.data.company) : parsed.data.company;
+  const code    = encodeURIComponent(parsed.data.code);
   const appUrl    = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const fromEmail = process.env.RESEND_FROM || process.env.RESEND_FROM_EMAIL || "solutions@hosautomations.co";
-  const pdfLink   = `${appUrl}/api/pdf?code=${code}`;
+  // 30 days: long enough that the email stays useful, short enough that a
+  // forwarded or leaked message doesn't grant permanent access to the agreement.
+  const pdfLink   = `${appUrl}/api/pdf?code=${code}&t=${await signPdfToken(code, "30d")}`;
 
   const resend = new Resend(apiKey);
 

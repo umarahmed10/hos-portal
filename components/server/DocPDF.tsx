@@ -9,7 +9,6 @@ import type { Doc } from "@/types";
 const BRONZE = "#8B6B3E";
 const BONE   = "#F3F1EC";
 const DARK   = "#111111";
-const PANEL  = "#1A1A1A";
 const MID    = "#2A2A2A";
 const GREY   = "#727272";
 const LIGHT  = "#555555";

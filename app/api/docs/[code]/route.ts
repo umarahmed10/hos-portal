@@ -3,27 +3,23 @@ import { NextResponse }        from "next/server";
 import { updateDoc, logEvent, getDocByCode } from "@/lib/data-access";
 import { getAdminSession }     from "@/lib/auth";
 import { invTotal }            from "@/lib/utils";
+import { DocItemSchema, ShortText, MediumText, LongText } from "@/lib/schemas";
 import { z }                   from "zod";
 
 const UpdateSchema = z.object({
   type:           z.enum(["both", "agreement", "invoice"]).optional(),
-  name:           z.string().min(1).optional(),
-  company:        z.string().optional(),
+  name:           ShortText.min(1).optional(),
+  company:        ShortText.optional(),
   email:          z.string().email().optional().or(z.literal("")),
-  service:        z.string().optional(),
-  service_type:   z.string().optional(),
-  service_area:   z.string().optional(),
-  date:           z.string().optional(),
-  fee:            z.string().optional(),
-  agreement_text: z.string().optional(),
-  items:          z.array(z.object({
-    id:    z.number(),
-    desc:  z.string(),
-    qty:   z.string(),
-    price: z.string(),
-  })).optional(),
-  due_date:       z.string().optional(),
-  pay_notes:      z.string().optional(),
+  service:        MediumText.optional(),
+  service_type:   ShortText.optional(),
+  service_area:   ShortText.optional(),
+  date:           ShortText.optional(),
+  fee:            ShortText.optional(),
+  agreement_text: LongText.optional(),
+  items:          z.array(DocItemSchema).max(200).optional(),
+  due_date:       ShortText.optional(),
+  pay_notes:      MediumText.optional(),
   status:         z.enum(["draft", "pending", "archived"]).optional(),
   // Payment fields
   payment_status: z.enum(["unpaid", "partially_paid", "paid"]).optional(),
@@ -58,6 +54,16 @@ export async function PATCH(
     );
   }
 
+  // An empty update set produces a no-op UPDATE that matches 0 rows, which the
+  // driver then fails to coerce to a single object — surfacing as a confusing
+  // 500. Reject it up front instead.
+  if (Object.keys(parsed.data).length === 0) {
+    return NextResponse.json(
+      { ok: false, error: "No recognised fields to update." },
+      { status: 400 }
+    );
+  }
+
   try {
     const existing = await getDocByCode(code);
     if (!existing) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
@@ -67,6 +73,17 @@ export async function PATCH(
       ...d,
       ...(d.items ? { invoice_total: invTotal(d.items) } : {}),
     };
+
+    // A payment can't exceed the invoice. Caught here so an admin typo returns
+    // a usable message rather than a raw check-constraint violation.
+    const effectiveTotal = update.invoice_total ?? existing.invoice_total;
+    if (d.amount_paid !== undefined && d.amount_paid > effectiveTotal) {
+      return NextResponse.json(
+        { ok: false, error: `Amount paid cannot exceed the invoice total (${effectiveTotal}).` },
+        { status: 400 }
+      );
+    }
+
     const doc = await updateDoc(code, update);
 
     // Log payment_updated event if payment fields changed
@@ -81,6 +98,7 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true, data: doc });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+    console.error("[docs] update failed:", err);
+    return NextResponse.json({ ok: false, error: "Could not update the client." }, { status: 500 });
   }
 }

@@ -8,7 +8,16 @@ import { z }            from "zod";
 import { createHash }   from "crypto";
 import { getDocBySlug, getDocByCode } from "@/lib/data-access";
 import { signPortalToken, buildPortalCookie } from "@/lib/portal-auth";
+import { rateLimit }    from "@/lib/rate-limit";
 import type { Doc } from "@/types";
+
+function clientIp(req: Request): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown"
+  );
+}
 
 const Schema = z.object({
   slug:        z.string().min(1).optional(),
@@ -17,6 +26,16 @@ const Schema = z.object({
 });
 
 export async function POST(req: Request) {
+  // The 6-character code is the only secret protecting a portal — throttle
+  // guessing. Magic-link entry goes through the same limiter by design.
+  const rl = rateLimit(`portal-session:${clientIp(req)}`, { windowMs: 15 * 60_000, max: 10 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { ok: false, error: "Too many attempts. Try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+    );
+  }
+
   const body   = await req.json().catch(() => null);
   const parsed = Schema.safeParse(body);
 

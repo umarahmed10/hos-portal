@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { Resend }       from "resend";
 import { z }            from "zod";
+import { isInternalRequest, escapeHtml } from "@/lib/internal-auth";
 import { fmtDateTime }  from "@/lib/utils";
 
 const SignSchema = z.object({
@@ -17,10 +18,18 @@ const SignSchema = z.object({
 
 function truncateUA(ua: string | null | undefined): string {
   if (!ua) return "Unknown";
-  return ua.length > 90 ? `${ua.slice(0, 90)}…` : ua;
+  const trimmed = ua.length > 90 ? `${ua.slice(0, 90)}…` : ua;
+  // Client-supplied header — escaped before it reaches the email body.
+  return escapeHtml(trimmed);
 }
 
 export async function POST(req: Request) {
+  // Server-to-server only (called by /api/sign). Previously anyone could POST
+  // here to send mail to the admin with attacker-controlled HTML.
+  if (!isInternalRequest(req)) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ ok: false, error: "Invalid body" }, { status: 400 });
 
@@ -40,7 +49,16 @@ export async function POST(req: Request) {
 
   // ── Payment received ─────────────────────────────────────────────────────────
   if (body.event === "payment_received") {
-    const { name, company, code, amount, email } = body;
+    // This branch had no schema at all — every field went raw into the markup.
+    const name    = escapeHtml(body.name);
+    const company = body.company ? escapeHtml(body.company) : "";
+    const email   = body.email ? escapeHtml(body.email) : "";
+    const code    = escapeHtml(body.code);
+    const codeUrl = encodeURIComponent(String(body.code ?? ""));
+    const amount  = Number(body.amount);
+    if (!Number.isFinite(amount)) {
+      return NextResponse.json({ ok: false, error: "Invalid amount" }, { status: 400 });
+    }
     try {
       await resend.emails.send({
         from:    `House Of Sales <${fromEmail}>`,
@@ -58,7 +76,7 @@ export async function POST(req: Request) {
               <tr><td style="padding:8px 0;color:#727272;font-size:12px">Time</td><td style="color:#F3F1EC;font-size:13px;text-align:right">${new Date().toLocaleString("en-US")}</td></tr>
             </table>
             <div style="margin-top:24px">
-              <a href="${appUrl}/admin/share?code=${code}" style="background:#F3F1EC;color:#111;padding:12px 24px;text-decoration:none;font-weight:600;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:6px">VIEW CLIENT →</a>
+              <a href="${appUrl}/admin/share?code=${codeUrl}" style="background:#F3F1EC;color:#111;padding:12px 24px;text-decoration:none;font-weight:600;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:6px">VIEW CLIENT →</a>
             </div>
           </div>
         `,
@@ -75,8 +93,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Validation error" }, { status: 400 });
   }
 
-  const { name, company, service, invoiceTotal, signedAt, code, ip, ua } = parsed.data;
-  const shareLink = `${appUrl}/admin/share?code=${code}`;
+  const { signedAt } = parsed.data;
+  const name         = escapeHtml(parsed.data.name);
+  const company      = parsed.data.company ? escapeHtml(parsed.data.company) : "";
+  const service      = parsed.data.service ? escapeHtml(parsed.data.service) : "";
+  const invoiceTotal = escapeHtml(parsed.data.invoiceTotal);
+  const code         = escapeHtml(parsed.data.code);
+  const ip           = parsed.data.ip ? escapeHtml(parsed.data.ip) : "";
+  const ua           = parsed.data.ua;
+  const shareLink    = `${appUrl}/admin/share?code=${encodeURIComponent(parsed.data.code)}`;
 
   try {
     await resend.emails.send({

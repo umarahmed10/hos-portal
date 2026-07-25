@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { z }            from "zod";
 import { signDocViaAPI, logEvent, getDocByCode } from "@/lib/data-access";
+import { internalHeaders } from "@/lib/internal-auth";
 import { money }        from "@/lib/utils";
 import type { NotifyInput } from "@/types";
 
@@ -11,7 +12,7 @@ function notifyAdminServerSide(input: NotifyInput) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   fetch(`${appUrl}/api/notify`, {
     method:  "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: internalHeaders(),
     body:    JSON.stringify(input),
   }).catch(() => {});
 }
@@ -23,14 +24,16 @@ function emailSignedCopyToClient(input: {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   fetch(`${appUrl}/api/email-signed`, {
     method:  "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: internalHeaders(),
     body:    JSON.stringify(input),
   }).catch(() => {});
 }
 
 const Schema = z.object({
   code:                z.string().length(6),
-  signature:           z.string().min(10),   // base64 PNG data URL
+  // base64 PNG data URL. Capped: signatures are stored in Postgres and an
+  // unbounded field is a cheap storage-bloat vector (3 MB was accepted).
+  signature:           z.string().min(10).max(500_000),
   accepted_esign_terms: z.boolean(),
 });
 
@@ -107,6 +110,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, data: { signed_at: now } });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+    console.error("[sign] failed:", err);
+    return NextResponse.json({ ok: false, error: "Could not record the signature." }, { status: 500 });
   }
 }

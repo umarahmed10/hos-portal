@@ -6,7 +6,6 @@
 import type {
   Doc,
   AgreementInput,
-  NotifyInput,
   EmailClientInput,
   ApiResponse,
 } from "@/types";
@@ -84,13 +83,8 @@ export async function generateAgreement(
 // NOTIFICATIONS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Send signing notification email to admin.
- * Fire-and-forget — errors are logged but not surfaced to the client.
- */
-export async function notifyAdmin(input: NotifyInput): Promise<void> {
-  post("/api/notify", input).catch(() => {});
-}
+// notifyAdmin() was removed on 2026-07-25: it had no callers, and /api/notify is
+// now server-to-server only (it is fired by /api/sign with an internal secret).
 
 /**
  * Send document access link to a client's email.

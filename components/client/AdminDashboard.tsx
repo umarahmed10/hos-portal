@@ -5,11 +5,8 @@ import { useCountUp }          from "@/lib/hooks/useStaggeredReveal";
 import useSWR                  from "swr";
 import { toast }               from "sonner";
 import { fetchAllDocs, archiveDoc, logoutAdmin } from "@/lib/api-client";
-import { money, fmtDateTime }  from "@/lib/utils";
-import {
-  AMBER, AMBER_DIM, AMBER_BORDER, BORDER,
-  GREEN, GREEN_DIM, GREEN_BORDER, MUTED, SUBTLE, SURF, SURF_HOVER, TEXT, css,
-} from "@/lib/styles";
+import { money } from "@/lib/utils";
+import { AMBER, AMBER_DIM, AMBER_BORDER, BORDER, GREEN, GREEN_DIM, GREEN_BORDER, MUTED, SUBTLE, SURF_HOVER, TEXT, css } from "@/lib/styles";
 import { StatusBadge }   from "@/components/server/StatusBadge";
 import { HOSLogo }       from "@/components/shared/HOSLogo";
 import { CopyButton }    from "./CopyButton";
@@ -335,7 +332,6 @@ export function AdminDashboard({ initialDocs }: Props) {
                 !!doc.first_view_ip &&
                 !doc.signature &&
                 !doc.signed_at;
-              const payBadge = doc.payment_status ?? "unpaid";
 
               return (
                 <div key={doc.id}>

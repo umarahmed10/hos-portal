@@ -32,18 +32,10 @@ function getAdminClient() {
   return _adminClient;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _anonClient: SupabaseClient<any, "public", any> | null = null;
-function getAnonClient() {
-  if (_anonClient) return _anonClient;
-  const url     = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  if (!url || !anonKey) {
-    throw new Error("[data-access] NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY is not set");
-  }
-  _anonClient = createClient(url, anonKey, { auth: { persistSession: false } });
-  return _anonClient;
-}
+// No anon-key client here by design. `docs` has no anon RLS policies as of
+// 2026-07-25, and this module is server-only — every query below uses the
+// service role key. Client-facing access control is enforced by the calling
+// route (session checks) or by an explicit code filter, never by RLS.
 
 // Explicit column list — no select('*') anywhere. Keep in sync with types/index.ts Doc.
 const DOC_COLUMNS = [
@@ -289,15 +281,24 @@ export async function recordFirstView(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CLIENT READS (anon key — subject to RLS)
+// CLIENT READS
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Fetch a doc for client display. Uses anon key — RLS allows read by any code.
+ * Fetch a doc for client display in the code-authenticated /client/[code] flow.
  * Used by: app/client/[code]/page.tsx, sign/page.tsx, done/page.tsx
+ *
+ * Runs in Server Components only, so it uses the service role key. It formerly
+ * used the anon key and relied on the `client_read_by_code` RLS policy — but
+ * that policy was `USING (true)`, meaning the public anon key could read every
+ * row in `docs` (codes, emails, signatures included). The policy was dropped on
+ * 2026-07-25; see migrations/2026-07-25_drop_anon_docs_policies.sql.
+ *
+ * Access control for this flow is the 6-character code in the URL, enforced by
+ * the `.eq("code", …)` filter below — never by RLS.
  */
 export async function getDocForClient(code: string): Promise<Doc | null> {
-  const db = getAnonClient();
+  const db = getAdminClient();
   const { data, error } = await db
     .from("docs")
     .select(DOC_COLUMNS)
@@ -309,25 +310,11 @@ export async function getDocForClient(code: string): Promise<Doc | null> {
   return data as unknown as Doc;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CLIENT WRITE (anon key — subject to RLS "client_sign" policy)
-// Kept for backwards compatibility. Primary path is signDocViaAPI.
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function signDoc(
-  code:      string,
-  signature: string,
-  signedAt:  string
-): Promise<void> {
-  const db = getAnonClient();
-  const { error } = await db
-    .from("docs")
-    .update({ status: "signed", signature, signed_at: signedAt })
-    .eq("code", code.toUpperCase())
-    .eq("status", "pending");
-
-  if (error) throw new Error(`[data-access] signDoc: ${error.message}`);
-}
+// NOTE: a `signDoc()` helper used to live here, writing via the anon key under
+// the `client_sign` RLS policy. It had no callers — /api/sign uses
+// signDocViaAPI() below, which validates the code, enforces pending status and
+// captures IP/UA — and the policy it depended on let any anonymous caller sign
+// any pending document. Both were removed on 2026-07-25.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EVENT LOG (service role — doc_events has no anon RLS)

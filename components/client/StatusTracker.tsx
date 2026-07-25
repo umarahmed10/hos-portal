@@ -3,7 +3,7 @@
 // Reflects real doc state where possible; remaining steps shown as upcoming.
 import type { Doc, DocEvent } from "@/types";
 import { fmtDateTime }        from "@/lib/utils";
-import { GREEN, GREEN_BORDER, MUTED, SURF, BORDER, TEXT, BODY } from "@/lib/styles";
+import { GREEN, GREEN_BORDER, MUTED, BORDER, TEXT, BODY } from "@/lib/styles";
 
 interface Step {
   key:       string;

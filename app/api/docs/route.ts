@@ -6,6 +6,7 @@ import { getAllDocs, createDoc, updateDoc, logEvent } from "@/lib/data-access";
 import { getAdminSession } from "@/lib/auth";
 import { genCode, invTotal, slugify } from "@/lib/utils";
 import { sendPortalEmail } from "@/lib/send-portal-email";
+import { DocItemSchema, ShortText, MediumText, LongText } from "@/lib/schemas";
 import { z }               from "zod";
 
 export async function GET() {
@@ -22,23 +23,18 @@ export async function GET() {
 
 const CreateSchema = z.object({
   type:           z.enum(["both", "agreement", "invoice"]),
-  name:           z.string().min(1),
-  company:        z.string().optional(),
+  name:           ShortText.min(1),
+  company:        ShortText.optional(),
   email:          z.string().email().optional().or(z.literal("")),
-  service:        z.string().optional(),
-  service_type:   z.string().optional(),
-  service_area:   z.string().optional(),
-  date:           z.string().optional(),
-  fee:            z.string().optional(),
-  agreement_text: z.string().optional(),
-  items:          z.array(z.object({
-    id:    z.number(),
-    desc:  z.string(),
-    qty:   z.string(),
-    price: z.string(),
-  })).default([]),
-  due_date:       z.string().optional(),
-  pay_notes:      z.string().optional(),
+  service:        MediumText.optional(),
+  service_type:   ShortText.optional(),
+  service_area:   ShortText.optional(),
+  date:           ShortText.optional(),
+  fee:            ShortText.optional(),
+  agreement_text: LongText.optional(),
+  items:          z.array(DocItemSchema).max(200).default([]),
+  due_date:       ShortText.optional(),
+  pay_notes:      MediumText.optional(),
   status:         z.enum(["draft", "pending"]).default("pending"),
 });
 
@@ -81,6 +77,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, data: doc }, { status: 201 });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+    // Never surface the raw driver error — it leaks table and constraint names.
+    console.error("[docs] create failed:", err);
+    return NextResponse.json({ ok: false, error: "Could not create the client." }, { status: 500 });
   }
 }

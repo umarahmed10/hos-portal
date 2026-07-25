@@ -1,6 +1,8 @@
 import { ClientCodeEntry }  from "@/components/client/ClientCodeEntry";
 import { css }              from "@/lib/styles";
 
+export const metadata = { title: "Enter your code · HOS Client Portal" };
+
 export const dynamic = "force-dynamic";
 
 export default function ClientPage() {

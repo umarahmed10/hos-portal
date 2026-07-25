@@ -7,6 +7,8 @@ import { BODY, GREEN, GREEN_DIM, GREEN_BORDER, MUTED, TEXT, css } from "@/lib/st
 import { headers }            from "next/headers";
 import { fmtDateTime }        from "@/lib/utils";
 
+export const metadata = { title: "Documents · HOS Client Portal" };
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

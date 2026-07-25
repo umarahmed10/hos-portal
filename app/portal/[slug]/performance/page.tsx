@@ -7,6 +7,8 @@ import { createClient }       from "@supabase/supabase-js";
 import { money }              from "@/lib/utils";
 import { BORDER, MUTED, TEXT } from "@/lib/styles";
 
+export const metadata = { title: "Performance · HOS Client Portal" };
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

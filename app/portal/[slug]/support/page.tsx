@@ -2,7 +2,9 @@
 import { redirect }         from "next/navigation";
 import { getPortalSession } from "@/lib/portal-auth";
 import { SupportChat }      from "@/components/client/SupportChat";
-import { BODY, FONT, MUTED, TEXT } from "@/lib/styles";
+import { FONT, MUTED, TEXT } from "@/lib/styles";
+
+export const metadata = { title: "Support · HOS Client Portal" };
 
 interface Props {
   params: Promise<{ slug: string }>;

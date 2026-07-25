@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { DISPLAY, UI, BODY, MONO, MUTED, TEXT, GREEN, css } from "@/lib/styles";
+import {DISPLAY, UI, BODY, MONO, MUTED, TEXT, GREEN, css, GOLD_TEXT } from "@/lib/styles";
 import type { Doc } from "@/types";
 
 interface Props {
@@ -57,7 +57,7 @@ export function SignedPortalEntrance({ doc }: Props) {
           fontFamily:    MONO,
           fontSize:      9,
           letterSpacing: "0.18em",
-          color:         "rgba(139,107,62,0.5)",
+          color:         GOLD_TEXT,
           textTransform: "uppercase",
           marginBottom:  14,
         }}>

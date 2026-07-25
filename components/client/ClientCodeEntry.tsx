@@ -2,9 +2,7 @@
 import { useState }   from "react";
 import { useRouter }  from "next/navigation";
 import { toast }      from "sonner";
-import { supabase }   from "@/lib/supabase-browser";
-import { cleanCode }  from "@/lib/utils";
-import { MUTED, TEXT, css } from "@/lib/styles";
+import {MUTED, TEXT, css, GOLD_TEXT } from "@/lib/styles";
 import { Loader2 }    from "@/components/shared/Icons";
 
 export function ClientCodeEntry() {
@@ -21,20 +19,30 @@ export function ClientCodeEntry() {
     if (clean.length < 6) return;
     setLoading(true);
 
-    const { data } = await supabase
-      .from("docs")
-      .select("code, status")
-      .eq("code", clean)
-      .single();
+    // Validated server-side: the browser must never query `docs` directly, since
+    // the anon key is public and the access code is the portal's only secret.
+    try {
+      const res = await fetch(`/api/docs/by-code/${clean}`);
 
-    setLoading(false);
+      if (res.status === 429) {
+        setLoading(false);
+        toast.error("Too many attempts. Please wait a moment and try again.");
+        return;
+      }
 
-    if (!data) {
-      toast.error("That code doesn't look right. Check your email and try again.");
-      return;
+      const json = await res.json().catch(() => ({ ok: false }));
+      setLoading(false);
+
+      if (!json.ok) {
+        toast.error("That code doesn't look right. Check your email and try again.");
+        return;
+      }
+
+      router.push(`/client/${clean}`);
+    } catch {
+      setLoading(false);
+      toast.error("Couldn't reach the server. Check your connection and try again.");
     }
-
-    router.push(`/client/${clean}`);
   }
 
   return (
@@ -50,7 +58,7 @@ export function ClientCodeEntry() {
         fontSize:      9,
         letterSpacing: "0.18em",
         textTransform: "uppercase",
-        color:         "rgba(139,107,62,0.5)",
+        color:         GOLD_TEXT,
         marginBottom:  16,
       }}>
         Client Access
@@ -86,8 +94,10 @@ export function ClientCodeEntry() {
         onKeyDown={e => e.key === "Enter" && handleAccess()}
         maxLength={6}
         placeholder="A1B2C3"
+        aria-label="Six-character access code"
+        inputMode="text"
         autoCapitalize="characters"
-        autoComplete="off"
+        autoComplete="one-time-code"
         spellCheck={false}
         style={{
           ...css.inp,
@@ -124,9 +134,10 @@ export function ClientCodeEntry() {
         ) : "Enter My Portal →"}
       </button>
 
-      <p style={{ fontSize: 12, color: MUTED, marginTop: 20, textAlign: "center", fontFamily: "var(--font-body)", opacity: 0.5 }}>
+      {/* opacity 0.5 was halving MUTED's contrast — removed so it stays AA. */}
+      <p style={{ fontSize: 12, color: MUTED, marginTop: 20, textAlign: "center", fontFamily: "var(--font-body)" }}>
         Questions?{" "}
-        <a href="mailto:team@hosautomations.co" style={{ color: MUTED, textDecoration: "underline", textDecorationColor: "rgba(114,114,114,0.3)" }}>
+        <a href="mailto:team@hosautomations.co" style={{ color: MUTED, textDecoration: "underline", textDecorationColor: "rgba(138,138,138,0.4)" }}>
           team@hosautomations.co
         </a>
       </p>

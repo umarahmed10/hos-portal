@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
+import Link                       from "next/link";
 import { useRouter }              from "next/navigation";
 import { toast }                  from "sonner";
 import { SignaturePad }           from "@/components/client/SignaturePad";
@@ -12,6 +13,7 @@ import {
   GREEN, GREEN_DIM, GREEN_BORDER, AMBER, AMBER_DIM, AMBER_BORDER,
   GOLD, GOLD_DIM, GOLD_BORDER,
   css,
+  GOLD_TEXT,
 } from "@/lib/styles";
 import type { PaymentStatus, Doc } from "@/types";
 
@@ -35,12 +37,14 @@ const SIGN_CONFIRM_LINES = [
 interface SignPageProps {
   doc: Doc;
   redirectAfter?: string;
+  /** Short-lived token for the /api/pdf link — this flow has no session. */
+  pdfToken?: string;
 }
 
 type SignStage = "idle" | "securing" | "confirmed" | "lines";
 type ConfirmState = "idle" | "loading" | "ring" | "check" | "checklist" | "done";
 
-export function SignPage({ doc, redirectAfter }: SignPageProps) {
+export function SignPage({ doc, redirectAfter, pdfToken }: SignPageProps) {
   const router   = useRouter();
   const [step, setStep]               = useState(1);
   const [prevStep, setPrevStep]       = useState(0);
@@ -52,8 +56,6 @@ export function SignPage({ doc, redirectAfter }: SignPageProps) {
   const [readComplete, setReadComplete] = useState(false);
 
   const isGoingForward = step > prevStep;
-  const saving         = signStage !== "idle";
-  const destination    = redirectAfter ?? `/client/${doc.code}/done`;
 
   function advance(n: number) {
     setPrevStep(step);
@@ -127,12 +129,16 @@ export function SignPage({ doc, redirectAfter }: SignPageProps) {
       });
       const json = await res.json();
       if (json.ok && json.data?.slug) {
-        window.location.href = `/portal/${json.data.slug}/status`;
+        // Honour redirectAfter when the caller set one — the portal signing page
+        // passes /portal/[slug]/status to keep the client inside the portal
+        // shell. Without this the prop was silently ignored and portal signers
+        // were bounced out to the standalone /client/[code]/done page.
+        window.location.href = redirectAfter ?? `/portal/${json.data.slug}/status`;
         return;
       }
     } catch { /* fall through to fallback */ }
     // Fallback: if portal-session fails or returns no slug, go to done page
-    window.location.href = `/client/${doc.code}/done`;
+    window.location.href = redirectAfter ?? `/client/${doc.code}/done`;
   }
 
   // Step label style — DM Mono, bronze tint
@@ -140,7 +146,7 @@ export function SignPage({ doc, redirectAfter }: SignPageProps) {
     fontFamily:    MONO,
     fontSize:      9,
     letterSpacing: "0.18em",
-    color:         "rgba(139,107,62,0.5)",
+    color:         GOLD_TEXT,
     textTransform: "uppercase",
     marginBottom:  10,
   };
@@ -161,14 +167,15 @@ export function SignPage({ doc, redirectAfter }: SignPageProps) {
     <div style={{ ...css.app, paddingBottom: 100 }}>
       {/* Sticky exit button */}
       <div style={{ position: "fixed", top: 16, right: 20, zIndex: 1000 }}>
-        <a
+        <Link
           href="/"
           style={{
             fontFamily:     MONO,
             fontSize:       9,
             letterSpacing:  "0.12em",
             textTransform:  "uppercase",
-            color:          "#404040",
+            // Was #404040 — 1.82:1 contrast, far below WCAG AA for a control.
+            color:          MUTED,
             textDecoration: "none",
             padding:        "6px 12px",
             border:         "1px solid #2A2A2A",
@@ -177,7 +184,7 @@ export function SignPage({ doc, redirectAfter }: SignPageProps) {
           }}
         >
           Exit
-        </a>
+        </Link>
       </div>
 
       <div style={{ maxWidth: 920, margin: "0 auto", padding: "32px 24px 0" }}>
@@ -306,7 +313,7 @@ export function SignPage({ doc, redirectAfter }: SignPageProps) {
                   fontSize:      9,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
-                  color:         "rgba(139,107,62,0.5)",
+                  color:         GOLD_TEXT,
                   animation:     "pulse 2s infinite",
                 }}>
                   Scroll to continue ↓
@@ -631,7 +638,7 @@ export function SignPage({ doc, redirectAfter }: SignPageProps) {
               ✓
             </div>
 
-            <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.18em", color: "rgba(139,107,62,0.5)", marginBottom: 12, textTransform: "uppercase" }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.18em", color: GOLD_TEXT, marginBottom: 12, textTransform: "uppercase" }}>
               Agreement Executed
             </div>
 
@@ -704,7 +711,7 @@ export function SignPage({ doc, redirectAfter }: SignPageProps) {
 
             <div style={{ marginTop: 8 }}>
               <a
-                href={`/api/pdf?code=${doc.code}`}
+                href={`/api/pdf?code=${doc.code}${pdfToken ? `&t=${pdfToken}` : ""}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ fontSize: 12, color: MUTED, fontFamily: BODY, textDecoration: "none", opacity: 0.5 }}

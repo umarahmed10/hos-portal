@@ -27,11 +27,20 @@ export const SURF_HOVER   = "#252525";
 export const BORDER       = "#2A2A2A";   // Graphite borders (dark surfaces)
 export const BORDER_LIGHT = "#333333";
 export const TEXT         = "#F3F1EC";   // Bone White — primary text (30%)
-export const MUTED        = "#727272";   // Slate Grey — secondary text
-export const SUBTLE       = "#404040";   // Ghost text
+// Contrast note (measured 2026-07-25 against BG #111111):
+//   #727272 → 3.93:1 and #404040 → 1.82:1, both below the WCAG AA 4.5:1 minimum
+//   for body text. Raised to the values below, which measure 5.47:1 and 4.52:1
+//   on #111111 (and 5.04:1 / 4.16:1 on SURF #1A1A1A), while keeping the two
+//   tiers visually distinct.
+export const MUTED        = "#8A8A8A";   // Slate Grey — secondary text
+export const SUBTLE       = "#7C7C7C";   // Ghost text — dimmest readable tier
 
 // Bronze accent — <5% usage only
-export const GOLD         = "#8B6B3E";       // Deep Bronze
+export const GOLD         = "#8B6B3E";       // Deep Bronze — fills, borders, buttons
+// GOLD measures only 3.84:1 on BG as text, and the rgba(139,107,62,0.5) tint used
+// for small eyebrow labels was far worse. This lighter bronze reads 8.44:1 on
+// BG — use it for any bronze TEXT, and keep GOLD for non-text surfaces.
+export const GOLD_TEXT    = "#C9A96E";       // Light Bronze — accessible text tone
 export const GOLD_DIM     = "rgba(139,107,62,0.09)";
 export const GOLD_BORDER  = "rgba(139,107,62,0.22)";
 

@@ -1,8 +1,17 @@
 "use client";
 import { useCallback, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePushSubscription } from "@/lib/comms/usePushSubscription";
 import { IncomingCallModal } from "@/components/comms/IncomingCallModal";
-import { CommsCallOverlay } from "@/components/comms/CommsCallOverlay";
+
+// Lazy-loaded: this pulls in livekit-client (~541 KB decoded / ~140 KB gzipped),
+// which was 48% of the JS on EVERY portal page — including the login screen —
+// even though the overlay only mounts once a call is actually accepted.
+// The polling that detects an incoming call is lightweight and stays eager.
+const CommsCallOverlay = dynamic(
+  () => import("@/components/comms/CommsCallOverlay").then(m => m.CommsCallOverlay),
+  { ssr: false },
+);
 
 interface Props {
   code: string;

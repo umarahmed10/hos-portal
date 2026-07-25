@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState, useCallback } from "react";
-import { AMBER, BORDER, MUTED, css }     from "@/lib/styles";
+import { BORDER, css } from "@/lib/styles";
 import { clamp }                          from "@/lib/utils";
 
 interface Props {

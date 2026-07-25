@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit } from "@/lib/rate-limit";
+import { authorizeDocAccess } from "@/lib/doc-access";
 
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -32,11 +33,6 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const rl = rateLimit("avatar:upload", { windowMs: 60_000, max: 5 });
-  if (!rl.allowed) {
-    return NextResponse.json({ ok: false, error: "Too many uploads" }, { status: 429 });
-  }
-
   const formData = await req.formData().catch(() => null);
   if (!formData) {
     return NextResponse.json({ ok: false, error: "Invalid form data" }, { status: 400 });
@@ -49,6 +45,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "file and code required" }, { status: 400 });
   }
 
+  // Only the owning portal client (or an admin) may replace this avatar. The
+  // bucket is public, so an unauthenticated upload = arbitrary attacker content
+  // hosted on our Supabase domain, plus avatar defacement for any known code.
+  if (!(await authorizeDocAccess(code))) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Keyed per code: a global key let one uploader exhaust the budget for everyone.
+  const rl = rateLimit(`avatar:upload:${code.toUpperCase()}`, { windowMs: 60_000, max: 5 });
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Too many uploads" }, { status: 429 });
+  }
+
   if (file.size > MAX_SIZE) {
     return NextResponse.json({ ok: false, error: "Image too large (max 2 MB)" }, { status: 400 });
   }
@@ -57,7 +66,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Only JPEG, PNG, WebP, or GIF" }, { status: 400 });
   }
 
-  const ext = file.name.split(".").pop() || "jpg";
+  // Derive the extension from the validated MIME type, never from the uploaded
+  // filename — a caller-controlled name can carry path segments.
+  const EXT_BY_TYPE: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png":  "png",
+    "image/webp": "webp",
+    "image/gif":  "gif",
+  };
+  const ext = EXT_BY_TYPE[file.type] ?? "jpg";
   const path = `${code.toUpperCase()}/avatar.${ext}`;
   const buf = await file.arrayBuffer();
   const supabase = db();

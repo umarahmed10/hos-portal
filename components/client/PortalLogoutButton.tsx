@@ -2,7 +2,7 @@
 import { logoutPortal } from "@/lib/api-client";
 import { BORDER, SUBTLE } from "@/lib/styles";
 
-export function PortalLogoutButton({ slug: _slug }: { slug: string }) {
+export function PortalLogoutButton() {
   async function handleLogout() {
     try {
       await logoutPortal();

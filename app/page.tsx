@@ -3,7 +3,7 @@ import { useState }               from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast }                  from "sonner";
 import { loginAdmin }             from "@/lib/api-client";
-import { BODY, BORDER, MUTED, SURF, TEXT, css } from "@/lib/styles";
+import {MUTED, TEXT, css, GOLD_TEXT } from "@/lib/styles";
 import { Loader2 }                from "@/components/shared/Icons";
 import { HOSLogo }                from "@/components/shared/HOSLogo";
 import { Suspense }               from "react";
@@ -74,7 +74,7 @@ function LandingContent() {
           fontSize:      10,
           letterSpacing: "0.18em",
           textTransform: "uppercase",
-          color:         "rgba(139,107,62,0.5)",
+          color:         GOLD_TEXT,
           marginBottom:  20,
           animation:     "fadeUp 320ms var(--ease-out) 100ms both",
         }}>
