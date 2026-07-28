@@ -19,33 +19,43 @@ You are a senior product engineer, UX architect, and product designer specialisi
 |---|---|
 | Framework | Next.js 16 App Router (server components default) |
 | Language | TypeScript, target ES2018 |
-| Database | Supabase PostgreSQL with RLS |
+| Database | Supabase PostgreSQL. **`docs` has RLS enabled with NO anon policies** — the anon key can read/write nothing. All access is server-side via the service role key. |
 | Auth | JWT via `jose` — `hos_admin_session` cookie (admin) + `hos_portal_session` cookie (per-doc portal), 24 h httpOnly |
-| Email | Resend (`lib/resend.ts`) |
+| Email | Resend, called from route handlers |
 | AI | OpenRouter (`/api/support-chat`, `/api/generate-agreement`) |
-| PDF | Puppeteer (`/api/pdf`) |
-| Fonts | Barlow Condensed (headers), Barlow (body), JetBrains Mono (mono) — loaded in `app/layout.tsx` |
+| PDF | `@react-pdf/renderer` server-side (`/api/pdf` + `components/server/DocPDF.tsx`). **Not Puppeteer.** |
+| Realtime | LiveKit (`livekit-client`) — lazy-loaded, see the perf note below |
+| Fonts | Cormorant Garamond (display), Space Grotesk (UI), DM Sans (body), DM Mono (mono) — `app/layout.tsx` |
 | Design tokens | `lib/styles.ts` (JS constants) + `app/globals.css` (CSS variables) — **never hardcode hex values** |
-| Middleware | `proxy.ts` (not `middleware.ts`) — protects `/admin/*` and `/portal/:slug/:subpath+` |
-| Deployment | Vercel CLI: `vercel --prod --yes` from local. No GitHub integration. |
+| Middleware | `proxy.ts` (not `middleware.ts`) — CSRF, `/admin/*`, `/portal/:slug/:subpath+` (binds session to slug) |
+| Deployment | **Vercel CLI: `vercel --prod --yes` from local. No GitHub integration** — pushing to GitHub does NOT deploy. Verify in the Vercel dashboard before relying on either path. |
 
-### Key env vars (already set in Vercel):
-- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-- `JWT_SECRET`, `ADMIN_PASSWORD`
+### Key env vars (set in Vercel):
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- `JWT_SECRET`, `ADMIN_PASSWORD` (prefer `ADMIN_PASSWORD_HASH` — `/api/auth` checks the hash first)
 - `NEXT_PUBLIC_APP_URL` = `https://hos-portal-main.vercel.app`
-- `RESEND_API_KEY`, `RESEND_FROM` = `onboarding@hosautomations.com`
+- `RESEND_API_KEY`, `RESEND_FROM` / `RESEND_FROM_EMAIL`, `ADMIN_EMAIL`
 - `OPENROUTER_API_KEY`
+- `INTERNAL_SECRET` — **required.** Gates `/api/notify`, `/api/email-signed`, `/api/email-payment-receipt`.
+  Fails closed: if unset, signing notifications and client confirmation emails **silently do not send**.
+- `NEXT_PUBLIC_LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
 
 ### Design token quick reference (`lib/styles.ts`):
 ```
-BG="#090909"  SURF="#111111"  BORDER="#1d1d1d"  TEXT="#f5f0eb"
-MUTED="#555555"  GREEN="#22c55e"  AMBER="#eab308"  RED="#ef4444"
-FONT=Barlow Condensed (headers)  BODY=Barlow  MONO=JetBrains Mono
+BG="#111111"  SURF="#1A1A1A"  SURF_2="#222222"  BORDER="#2A2A2A"
+TEXT="#F3F1EC"  MUTED="#8A8A8A"  SUBTLE="#7C7C7C"
+GOLD="#8B6B3E"       -> fills, borders, buttons ONLY (3.84:1 — fails AA as text)
+GOLD_TEXT="#C9A96E"  -> use for ALL bronze TEXT (8.44:1)
+GREEN="#4EAD87"  AMBER="#D4926A"
+DISPLAY=Cormorant Garamond  UI=Space Grotesk  BODY=DM Sans  MONO=DM Mono
 css.btnP = primary (cream bg)  css.btnS = secondary  css.card = surface card
 css.inp = form input  css.lbl = form label
 ```
+**Contrast rule:** MUTED/SUBTLE were raised on 2026-07-25 to clear WCAG AA 4.5:1 on BG.
+Don't lower them, don't stack `opacity` on top of them, and don't use raw `GOLD` for text.
 
-### DB schema highlights (already applied via schema.sql v3):
+### DB schema highlights (`schema.sql`, plus `migrations/`):
 ```sql
 docs: id, code, slug, name, company, email, status (pending|signed|archived|draft),
       agreement_text, invoice_json, signed_at, signed_ip, signed_ua,
@@ -56,6 +66,70 @@ docs: id, code, slug, name, company, email, status (pending|signed|archived|draf
 doc_events: id, doc_id, event (viewed|signed|opened_email|link_clicked|...), 
             metadata jsonb, ip, ua, created_at
 ```
+
+---
+
+## SECURITY MODEL — READ BEFORE TOUCHING AUTH, RLS OR EMAIL
+
+Established by the 2026-07-25 audit. Full findings + evidence: `docs/TEST_REPORT_2026-07-25.md`.
+
+**1. The anon key is public. `docs` has no anon RLS policies.**
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` ships to every browser. Until 2026-07-25 a
+`USING (true)` policy let anyone read all 28 client rows — codes, emails,
+invoice totals, signature images. Both anon policies were dropped
+(`migrations/2026-07-25_drop_anon_docs_policies.sql`).
+
+> **Never query `docs` from the browser, and never use an anon client in
+> `lib/data-access.ts`.** That module is server-only; every function uses the
+> service role key. When auditing this, grep for `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+> not just for the `lib/supabase-browser.ts` module — `data-access.ts` previously
+> built its own anon client inline and that is exactly how the bug hid.
+
+**2. A 6-character code is an identifier, not an authorization.**
+Any route serving document-scoped data must ALSO require entitlement:
+- `lib/doc-access.ts` → `authorizeDocAccess(code)` — admin session, or the portal
+  session whose `doc_id` matches. Used by `/api/pdf` and `/api/avatar`.
+- `lib/pdf-token.ts` → signed, expiring tokens bound to ONE code, for the two
+  legitimately session-less flows: `/client/[code]` and the emailed PDF link.
+  A token is useless against any other code.
+
+**3. Internal-only email routes.**
+`/api/notify`, `/api/email-signed`, `/api/email-payment-receipt` are
+server-to-server only, gated by `INTERNAL_SECRET` (`lib/internal-auth.ts`).
+`/api/email-signed` sends to a caller-supplied address from our verified domain —
+if it is ever reachable publicly it is an open relay. **Escape every interpolated
+value with `escapeHtml()`**; these templates drop strings into markup, including
+inside an `href`.
+
+**4. Validation lives in `lib/schemas.ts`.**
+`items[].price` / `qty` are `MoneyString` / `QtyString`, not bare strings — an
+unvalidated `"abc"` used to create a real client record billed at **$0** via
+`parseFloat(...) || 0`. Never return `String(err)` from a catch: it leaks
+Postgres constraint names. Log server-side, return a generic message.
+
+**5. Rate limiting is best-effort.**
+`lib/rate-limit.ts` is an in-memory Map. On Vercel each lambda has its own copy,
+so the real limit is `max × warm instances` and resets on cold start. It raises
+the cost of brute force but does **not** hard-cap it. For a real guarantee, back
+it with Upstash Redis / Vercel KV — the `rateLimit()` signature stays the same.
+
+**6. Schema changes that remove something the running code reads are a
+coordinated deploy.** Dropping the anon policy while the deployed build still
+queried `docs` from the browser took `/client` down in production. Ship the
+migration and the code together, or make the code tolerate both states.
+
+---
+
+## PERFORMANCE NOTE — keep LiveKit lazy
+
+`livekit-client` is ~541 KB decoded / 140 KB gzipped. It was statically imported
+through `IncomingCallListener` → `CommsCallOverlay`, which the portal layout
+renders on **every** page — so 48% of portal JS loaded even on the login screen,
+for clients who never place a call. `CommsCallOverlay` is now `next/dynamic`
+with `ssr: false` (portal JS 1,124 KB → 582 KB).
+
+**Do not convert that back to a static import.** The polling that detects an
+incoming call is lightweight and stays eager; only the call UI is deferred.
 
 ---
 
